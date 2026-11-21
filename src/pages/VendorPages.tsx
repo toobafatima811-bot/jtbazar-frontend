@@ -291,6 +291,13 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
       <div><span className="vendor-form__eyebrow">{t('JTBazar seller onboarding')}</span><h2>{t(profile?.status === 'rejected' ? 'Correct and resubmit application' : mode === 'settings' ? 'Shop settings' : profile ? 'Update application' : 'Apply to open a shop')}</h2><p>{t('Tell us about your shop and how you operate. Your private verification files are only available to marketplace administrators.')}</p></div>
       <button type="button" className="vendor-business-info-button" onClick={() => setShowBusinessGuide(true)} aria-label={t('What should my business information PDF include?')}><span className="vendor-business-info-button__icon">i</span><span>{t('Business information guide')}</span></button>
     </div>
+    <aside className="vendor-form__privacy" role="note" aria-label="Vendor privacy notice">
+      <strong>Privacy notice / رازداری کا نوٹس</strong>
+      <p>We collect your owner name, contact details, shop address, CNIC number and CNIC images only to verify seller identity, protect the marketplace from fraud, secure vendor accounts and handle disputes or legal requests. / ہم یہ معلومات صرف وینڈر کی شناخت کی تصدیق، فراڈ سے بچاؤ، اکاؤنٹ کی حفاظت اور تنازعات کے حل کے لیے لیتے ہیں۔</p>
+      <p>CNIC documents are stored in a private storage area and are available only to authorised JTBazar marketplace administrators. Document links expire after 5 minutes. We do not sell CNIC information or show it to other vendors. / آپ کی CNIC دستاویزات صرف مجاز JTBazar منتظمین دیکھ سکتے ہیں۔</p>
+      <p>Retention: for approved vendors, CNIC data is kept only while the vendor relationship is active and is scheduled for secure deletion within 90 days after account closure. For rejected applications, it is scheduled for deletion within 90 days after the final decision. Longer retention is limited to a legal requirement or an active fraud investigation or dispute. / مسترد شدہ درخواست یا اکاؤنٹ بند ہونے کے بعد CNIC ڈیٹا 90 دن کے اندر حذف کیا جائے گا، سوائے قانونی ضرورت یا جاری تنازعے کے۔</p>
+      <p>Questions or a privacy request? Contact JTBazar support from your account. / رازداری سے متعلق سوال کے لیے اپنے اکاؤنٹ سے JTBazar سپورٹ سے رابطہ کریں۔</p>
+    </aside>
     {mode === 'apply' && <div className="vendor-form__progress" aria-label={t('Application sections')}>
       {[t('Shop details'), t('Owner verification'), t('Shop location'), t('Business PDF')].map((label, index) => <span key={label} className={activeStep === index ? 'is-active' : activeStep > index ? 'is-complete' : ''} aria-current={activeStep === index ? 'step' : undefined}><b>{activeStep > index ? '✓' : String(index + 1).padStart(2, '0')}</b>{label}</span>)}
     </div>}
