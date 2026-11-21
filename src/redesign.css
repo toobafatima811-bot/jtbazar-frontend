@@ -3104,3 +3104,18 @@ button { font-family: var(--font-body); }
 .vendor-business-guide__note svg{flex:0 0 auto;margin-top:1px}
 .vendor-business-guide>.button{width:100%;justify-content:center;margin-top:3px}
 @media(max-width:680px){.vendor-form__intro{display:grid}.vendor-business-info-button{justify-self:start}.vendor-form__progress{grid-template-columns:repeat(2,minmax(0,1fr))}.vendor-form{padding:17px!important}.vendor-business-guide-backdrop{align-items:start;padding:12px}.vendor-business-guide{max-height:calc(100vh - 24px);padding:22px 17px}.vendor-form__actions{flex-wrap:wrap}}
+
+/* Seller application guided stepper */
+.vendor-form__step{display:contents}
+.vendor-form__step[hidden]{display:none!important}
+.vendor-form__progress span{transition:border-color .18s ease,background .18s ease,color .18s ease}
+.vendor-form__progress span.is-active{border-color:#9bb99a;background:#eef5eb;color:#294c30;box-shadow:inset 0 0 0 1px #d8e7d5}
+.vendor-form__progress span.is-active b{background:#456b49;color:#fff}
+.vendor-form__progress span.is-complete b{background:#e2efe0;color:#315c38}
+.vendor-form__step-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.vendor-form__step-actions .text-link{margin-left:auto}
+@media(max-width:640px){
+  .vendor-form__progress{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vendor-form__step-actions{display:grid;grid-template-columns:1fr 1fr}
+  .vendor-form__step-actions .text-link{grid-column:1/-1;margin:4px 0 0}
+}
