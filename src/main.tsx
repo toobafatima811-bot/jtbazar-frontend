@@ -4,6 +4,7 @@ import { App } from './app/App'
 import './styles.css'
 import './redesign.css'
 import './styles/home-redesign.css'
+import './styles/vendor-dashboard.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

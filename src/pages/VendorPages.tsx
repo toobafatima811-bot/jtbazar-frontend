@@ -1,6 +1,40 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { AlertCircle, ArrowRight, Boxes, CheckCircle2, Clock3, ClipboardList, ExternalLink, FileUp, LayoutDashboard, LocateFixed, MapPin, Package, PackageSearch, Pencil, Plus, Printer, RefreshCw, Search, Send, MessageCircle, Settings, ShieldCheck, Store, Truck, X } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowRight,
+  Boxes,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock3,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileUp,
+  LayoutDashboard,
+  LayoutGrid,
+  List,
+  LocateFixed,
+  MapPin,
+  MessageCircle,
+  Package,
+  PackageSearch,
+  Pencil,
+  Plus,
+  Printer,
+  RefreshCw,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  Store,
+  Trash2,
+  Truck,
+  Utensils,
+  X,
+} from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useCatalog } from '../contexts/CatalogContext'
 import { useToast } from '../contexts/ToastContext'
@@ -24,6 +58,7 @@ import {
   listOwnInventory,
   listOwnOrderItems,
   listOwnProducts,
+  listOwnProductsPrimaryImages,
   listOwnProductImageUrls,
   listOwnProductVariants,
   saveOwnProductVariants,
@@ -74,7 +109,33 @@ function VendorGate({ children }: { children: React.ReactNode }) {
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n()
-  return <span className={`vendor-status__badge vendor-status__badge--${status}`}>{t(status.replace(/_/g, ' '))}</span>
+  const normalized = (status || '').toLowerCase()
+  let modifier = 'vendor-badge--hidden'
+  let icon = null
+
+  if (['approved', 'confirmed', 'delivered', 'picked_up', 'resolved'].includes(normalized)) {
+    modifier = 'vendor-badge--approved'
+    icon = <CheckCircle2 size={12} aria-hidden="true" />
+  } else if (['pending', 'in_progress', 'ready_for_pickup', 'under_review', 'seller_responded'].includes(normalized)) {
+    modifier = 'vendor-badge--pending'
+    icon = <Clock3 size={12} aria-hidden="true" />
+  } else if (['rejected', 'suspended', 'cancelled', 'not_delivered'].includes(normalized)) {
+    modifier = 'vendor-badge--rejected'
+    icon = <AlertCircle size={12} aria-hidden="true" />
+  } else if (['published', 'live'].includes(normalized)) {
+    modifier = 'vendor-badge--live'
+    icon = <span className="vendor-pill__dot" aria-hidden="true" />
+  } else {
+    modifier = 'vendor-badge--hidden'
+    icon = <span className="vendor-pill__dot" aria-hidden="true" />
+  }
+
+  return (
+    <span className={`vendor-badge vendor-status__badge vendor-status__badge--${status} ${modifier}`}>
+      {icon}
+      <span>{t(status.replace(/_/g, ' '))}</span>
+    </span>
+  )
 }
 
 function VendorStatusCard({ profile, onEdit }: { profile: SellerProfile; onEdit?: () => void }) {
@@ -416,10 +477,12 @@ export function VendorDashboardPage() {
   const [profile, setProfile] = useState<SellerProfile | null>(null)
   const [accountSuspensionReason, setAccountSuspensionReason] = useState<string | null>(null)
   const [products, setProducts] = useState<VendorProduct[]>([])
+  const [productImages, setProductImages] = useState<Record<string, string>>({})
   const [inventory, setInventory] = useState<VendorInventory[]>([])
   const [cases, setCases] = useState<MarketplaceCase[]>([])
   const [orderItems, setOrderItems] = useState<VendorOrderItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<DashboardTab>('overview')
   const [editingProduct, setEditingProduct] = useState<VendorProduct | null>(null)
@@ -442,10 +505,33 @@ export function VendorDashboardPage() {
   const [inventoryEditNote, setInventoryEditNote] = useState('')
   const [savingInventoryGroup, setSavingInventoryGroup] = useState(false)
   const [savingProductAction, setSavingProductAction] = useState(false)
+
+  // Product List Filters & Controls
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [moderationFilter, setModerationFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [stockFilter, setStockFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('newest')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [productPage, setProductPage] = useState(0)
+  const [productPageSize, setProductPageSize] = useState(12)
+
+  // Inventory Filter & State
+  const [inventorySearch, setInventorySearch] = useState('')
+  const [inventoryStockFilter, setInventoryStockFilter] = useState<string>('all')
+  const [inventoryPage, setInventoryPage] = useState(0)
+  const [inventoryPageSize, setInventoryPageSize] = useState(10)
+
+  // Cases Pagination State
+  const [casesPage, setCasesPage] = useState(0)
+  const [casesPageSize, setCasesPageSize] = useState(5)
+
   usePageMeta(t('Vendor dashboard'), t('Manage listings, stock, fulfilment and customer cases.'))
 
-  async function load() {
-    setLoading(true)
+  async function load(isRefresh = false) {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
     setError(null)
     try {
       const suspensionReason = await getMyAccountSuspensionReason().catch(() => null)
@@ -454,16 +540,33 @@ export function VendorDashboardPage() {
       const nextProfile = await getOwnSellerProfile()
       setProfile(nextProfile)
       if (nextProfile?.status === 'approved') {
-        const results = await Promise.allSettled([listOwnProducts(), listOwnInventory(), listOwnCases(), listOwnOrderItems(), listOwnProductDeletionRequests()] as const)
+        const results = await Promise.allSettled([
+          listOwnProducts(),
+          listOwnInventory(),
+          listOwnCases(),
+          listOwnOrderItems(),
+          listOwnProductDeletionRequests(),
+        ] as const)
         const [productsResult, inventoryResult, casesResult, ordersResult, deletionResult] = results
-        setProducts(productsResult.status === 'fulfilled' ? productsResult.value : [])
+        const nextProducts = productsResult.status === 'fulfilled' ? productsResult.value : []
+        setProducts(nextProducts)
         setInventory(inventoryResult.status === 'fulfilled' ? inventoryResult.value : [])
         setCases(casesResult.status === 'fulfilled' ? casesResult.value : [])
         setOrderItems(ordersResult.status === 'fulfilled' ? ordersResult.value : [])
         setDeletionRequests(deletionResult.status === 'fulfilled' ? deletionResult.value : [])
+
+        if (nextProducts.length > 0) {
+          void listOwnProductsPrimaryImages(nextProducts.map((p) => p.id))
+            .then((imgs) => setProductImages((prev) => ({ ...prev, ...imgs })))
+            .catch(() => undefined)
+        }
+
         const failures = [
-          { label: 'Listings', result: productsResult }, { label: 'Inventory', result: inventoryResult },
-          { label: 'Cases', result: casesResult }, { label: 'Fulfilment', result: ordersResult }, { label: 'Deletion requests', result: deletionResult },
+          { label: 'Listings', result: productsResult },
+          { label: 'Inventory', result: inventoryResult },
+          { label: 'Cases', result: casesResult },
+          { label: 'Fulfilment', result: ordersResult },
+          { label: 'Deletion requests', result: deletionResult },
         ].flatMap(({ label, result }) => result.status === 'rejected' ? [`${label}: ${result.reason instanceof Error ? result.reason.message : 'could not be loaded'}`] : [])
         setError(failures.length ? failures.join(' · ') : null)
       }
@@ -471,6 +574,7 @@ export function VendorDashboardPage() {
       setError(cause instanceof Error ? cause.message : 'Vendor data could not be loaded.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -490,6 +594,155 @@ export function VendorDashboardPage() {
     return false
   }
 
+  // Real-time stock per product
+  const stockByProductId = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const item of inventory) {
+      map.set(item.product_id, (map.get(item.product_id) ?? 0) + Number(item.quantity))
+    }
+    return map
+  }, [inventory])
+
+  // Filtered products list
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const cat = (categoriesById.get(p.category_id ?? '') ?? '').toLowerCase()
+        const matches =
+          p.name.toLowerCase().includes(q) ||
+          (p.sku && p.sku.toLowerCase().includes(q)) ||
+          p.slug.toLowerCase().includes(q) ||
+          cat.includes(q)
+        if (!matches) return false
+      }
+      if (selectedCategory && p.category_id !== selectedCategory) {
+        return false
+      }
+      if (moderationFilter !== 'all' && p.moderation_status !== moderationFilter) {
+        return false
+      }
+      if (statusFilter === 'published' && p.vendor_hidden) return false
+      if (statusFilter === 'hidden' && !p.vendor_hidden) return false
+      if (stockFilter !== 'all') {
+        const stock = stockByProductId.get(p.id) ?? 0
+        if (stockFilter === 'in_stock' && stock <= 0) return false
+        if (stockFilter === 'low_stock' && (stock <= 0 || stock > 5)) return false
+        if (stockFilter === 'out_of_stock' && stock > 0) return false
+      }
+      return true
+    }).sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      if (sortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      if (sortBy === 'price_asc') return Number(a.price) - Number(b.price)
+      if (sortBy === 'price_desc') return Number(b.price) - Number(a.price)
+      if (sortBy === 'name_asc') return a.name.localeCompare(b.name)
+      if (sortBy === 'name_desc') return b.name.localeCompare(a.name)
+      if (sortBy === 'stock_asc') return (stockByProductId.get(a.id) ?? 0) - (stockByProductId.get(b.id) ?? 0)
+      if (sortBy === 'stock_desc') return (stockByProductId.get(b.id) ?? 0) - (stockByProductId.get(a.id) ?? 0)
+      return 0
+    })
+  }, [products, searchQuery, selectedCategory, moderationFilter, statusFilter, stockFilter, sortBy, categoriesById, stockByProductId])
+
+  // Products statistics
+  const productStats = useMemo(() => {
+    let approved = 0
+    let pending = 0
+    let rejected = 0
+    let hidden = 0
+    let lowOrOut = 0
+
+    for (const p of products) {
+      if (p.moderation_status === 'approved') approved++
+      if (p.moderation_status === 'pending_review') pending++
+      if (p.moderation_status === 'rejected') rejected++
+      if (p.vendor_hidden) hidden++
+      const stock = stockByProductId.get(p.id) ?? 0
+      if (p.track_inventory && stock <= 5) lowOrOut++
+    }
+    return {
+      total: products.length,
+      approved,
+      pending,
+      rejected,
+      hidden,
+      lowOrOut,
+    }
+  }, [products, stockByProductId])
+
+  // Active filter count
+  const activeFiltersCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (selectedCategory ? 1 : 0) +
+    (moderationFilter !== 'all' ? 1 : 0) +
+    (statusFilter !== 'all' ? 1 : 0) +
+    (stockFilter !== 'all' ? 1 : 0)
+
+  function resetAllFilters() {
+    setSearchQuery('')
+    setSelectedCategory('')
+    setModerationFilter('all')
+    setStatusFilter('all')
+    setStockFilter('all')
+    setProductPage(0)
+  }
+
+  // Paginated products
+  const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / productPageSize))
+  const paginatedProducts = useMemo(() => {
+    const start = productPage * productPageSize
+    return filteredProducts.slice(start, start + productPageSize)
+  }, [filteredProducts, productPage, productPageSize])
+
+  const openCases = cases.filter((item) => !['resolved', 'rejected', 'approved'].includes(item.status)).length
+  const openFulfilmentOrderCount = new Set(orderItems.filter((item) => !['delivered', 'cancelled'].includes(item.vendor_fulfillment_status)).map((item) => item.order_id)).size
+  const tabCounts: Partial<Record<DashboardTab, number>> = {
+    listings: products.length,
+    inventory: inventory.filter((item) => item.quantity > 0).length,
+    orders: openFulfilmentOrderCount,
+    cases: openCases,
+  }
+
+  const inventoryGroups = Object.values(inventory.reduce<Record<string, { productId: string; productName: string; rows: VendorInventory[] }>>((groups, item) => {
+    const group = groups[item.product_id] ?? { productId: item.product_id, productName: item.product_name, rows: [] }
+    group.rows.push(item)
+    groups[item.product_id] = group
+    return groups
+  }, {}))
+
+  // Filtered inventory groups for Inventory tab
+  const filteredInventoryGroups = inventoryGroups.filter((group) => {
+    const totalQty = group.rows.reduce((sum, r) => sum + Number(r.quantity), 0)
+    if (inventorySearch.trim()) {
+      const q = inventorySearch.toLowerCase().trim()
+      const matchesName = group.productName.toLowerCase().includes(q)
+      const matchesVariant = group.rows.some((r) => r.variant_name && r.variant_name.toLowerCase().includes(q))
+      if (!matchesName && !matchesVariant) return false
+    }
+    if (inventoryStockFilter === 'in_stock' && totalQty <= 0) return false
+    if (inventoryStockFilter === 'low_stock' && (totalQty <= 0 || totalQty > 5)) return false
+    if (inventoryStockFilter === 'out_of_stock' && totalQty > 0) return false
+    return true
+  })
+
+  const totalInventoryPages = Math.max(1, Math.ceil(filteredInventoryGroups.length / inventoryPageSize))
+  const paginatedInventoryGroups = useMemo(() => {
+    const start = inventoryPage * inventoryPageSize
+    return filteredInventoryGroups.slice(start, start + inventoryPageSize)
+  }, [filteredInventoryGroups, inventoryPage, inventoryPageSize])
+
+  const totalCasePages = Math.max(1, Math.ceil(cases.length / casesPageSize))
+  const paginatedCases = useMemo(() => {
+    const start = casesPage * casesPageSize
+    return cases.slice(start, start + casesPageSize)
+  }, [cases, casesPage, casesPageSize])
+
+  function openInventoryEditor(group: { productId: string; rows: VendorInventory[] }) {
+    setEditingInventoryProductId(group.productId)
+    setInventoryEditQuantities(Object.fromEntries(group.rows.map((row) => [row.id, String(row.quantity)])))
+    setInventoryEditNote('')
+  }
+
   if (authLoading) return <LoadingState label="Checking your account…" />
   if (!user) return <SignInForVendor />
   if (loading) return <LoadingState label="Loading vendor dashboard…" />
@@ -498,111 +751,1864 @@ export function VendorDashboardPage() {
   if (profile.status === 'suspended') return <VendorGate><AccountSuspensionNotice reason={profile.rejection_reason} /></VendorGate>
   if (profile.status !== 'approved') return <VendorGate><VendorStatusCard profile={profile} /></VendorGate>
 
-  const openCases = cases.filter((item) => !['resolved', 'rejected', 'approved'].includes(item.status)).length
-  const openFulfilmentOrderCount = new Set(orderItems.filter((item) => !['delivered', 'cancelled'].includes(item.vendor_fulfillment_status)).map((item) => item.order_id)).size
-  const tabCounts: Partial<Record<DashboardTab, number>> = { listings: products.length, inventory: inventory.length, orders: openFulfilmentOrderCount, cases: openCases }
-  const inventoryGroups = Object.values(inventory.reduce<Record<string, { productId: string; productName: string; rows: VendorInventory[] }>>((groups, item) => { const group = groups[item.product_id] ?? { productId: item.product_id, productName: item.product_name, rows: [] }; group.rows.push(item); groups[item.product_id] = group; return groups }, {}))
-  function openInventoryEditor(group: { productId: string; rows: VendorInventory[] }) { setEditingInventoryProductId(group.productId); setInventoryEditQuantities(Object.fromEntries(group.rows.map((row) => [row.id, String(row.quantity)]))); setInventoryEditNote('') }
-
-  return <VendorGate><section className="page-shell vendor-dashboard">
-    <header className="vendor-dashboard__header">
-      <div className="vendor-dashboard__identity">
-        <span className="vendor-dashboard__mark">{profile.shop_image_url ? <img src={profile.shop_image_url} alt="" /> : <Store size={25} aria-hidden="true" />}</span>
-        <div className="vendor-dashboard__intro"><span className="eyebrow">{profile.shop_name}</span><h1>{t('Vendor')} <em>{t('dashboard.')}</em></h1><p>{t('Listings begin in moderation, stock changes are recorded, and customer cases stay within your authorized seller boundary.')}</p></div>
+  return <VendorGate><section className="vendor-dashboard-pro">
+    {/* 1. Header Banner */}
+    <header className="vendor-pro-header">
+      <div className="vendor-pro-header__identity">
+        <span className="vendor-pro-header__avatar">
+          {profile.shop_image_url ? (
+            <img src={profile.shop_image_url} alt={profile.shop_name} />
+          ) : (
+            <Store size={36} aria-hidden="true" />
+          )}
+        </span>
+        <div className="vendor-pro-header__info">
+          <div className="vendor-pro-header__title-row">
+            <h1 className="vendor-pro-header__title">{profile.shop_name}</h1>
+            <span className="vendor-pill vendor-pill--verified">
+              <ShieldCheck size={13} aria-hidden="true" />
+              <span>{t('Verified Seller')}</span>
+            </span>
+            <span className={`vendor-pill ${profile.shop_is_open !== false ? 'vendor-pill--open' : 'vendor-pill--closed'}`}>
+              <span className="vendor-pill__dot" />
+              <span>{t(profile.shop_is_open !== false ? 'Open for Orders' : 'Store Paused')}</span>
+            </span>
+          </div>
+          <p className="vendor-pro-header__desc">
+            {profile.description || t('Manage your catalog, stock availability, customer orders and fulfilment boundary.')}
+          </p>
+          <div className="vendor-pro-header__meta">
+            {profile.shop_location_label && (
+              <span className="vendor-pill vendor-pill--neutral">
+                <MapPin size={12} aria-hidden="true" />
+                <span>{profile.shop_location_label}</span>
+              </span>
+            )}
+            <span className="vendor-pill vendor-pill--neutral">
+              <span>{profile.vendor_type ? t(profile.vendor_type.replace(/_/g, ' ')) : t('Seller')}</span>
+            </span>
+          </div>
+        </div>
       </div>
-      <div className="vendor-dashboard__links"><Link to={`/shops/${profile.slug}`} className="text-link">{t('View public shop')} <ExternalLink size={14} /></Link><button type="button" className="button button--outline" onClick={() => void load()}><RefreshCw size={15} /> {t('Refresh')}</button></div>
+
+      <div className="vendor-pro-header__actions">
+        <button
+          type="button"
+          className="vendor-btn vendor-btn--primary"
+          onClick={() => {
+            setCreatingProduct(true)
+            setEditingProduct(null)
+            setTab('listings')
+          }}
+        >
+          <Plus size={16} aria-hidden="true" />
+          <span>{t('New listing')}</span>
+        </button>
+        <Link to={`/shops/${profile.slug}`} className="vendor-btn vendor-btn--glass">
+          <ExternalLink size={15} aria-hidden="true" />
+          <span>{t('View public shop')}</span>
+        </Link>
+        <button
+          type="button"
+          className="vendor-btn vendor-btn--glass"
+          disabled={refreshing}
+          onClick={() => void load(true)}
+          title={t('Refresh dashboard data')}
+        >
+          <RefreshCw size={15} className={refreshing ? 'spin-icon' : ''} aria-hidden="true" />
+          <span>{t('Refresh')}</span>
+        </button>
+      </div>
     </header>
 
-    {error && <div className="placeholder-panel vendor-error"><AlertCircle size={18} /> {error}</div>}
+    {error && (
+      <div className="placeholder-panel vendor-error" style={{ marginBottom: 20 }}>
+        <AlertCircle size={18} /> {error}
+      </div>
+    )}
 
-    <div className="vendor-dashboard-layout">
-    <aside className="vendor-sidebar" aria-label={t('Vendor dashboard navigation')}>
-    <nav className="vendor-tabs" aria-label={t('Vendor sections')}>
-      {([
-        { value: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { value: 'listings', label: 'Listings', icon: PackageSearch },
-        { value: 'inventory', label: 'Inventory', icon: Boxes },
-        { value: 'orders', label: 'Fulfilment', icon: Truck },
-        { value: 'cases', label: 'Cases', icon: ClipboardList },
-        { value: 'settings', label: 'Shop settings', icon: Settings },
-      ] as const).map(({ value, label, icon: Icon }) => {
-        const count = tabCounts[value]
-        return <button key={value} type="button" className={tab === value ? 'is-active' : ''} aria-current={tab === value ? 'page' : undefined} onClick={() => setTab(value)}>
-          <Icon size={17} aria-hidden="true" /><span className="vendor-tab__label">{t(label)}</span>
-          {count !== undefined && <span className={`vendor-tab__badge${count > 0 ? ' has-items' : ''}`} aria-label={`${count} ${t(label)}`}>{count}</span>}
-        </button>
-      })}
-    </nav>
-    <Link to="/account" className="vendor-sidebar-account">{t('Account settings')}</Link>
-    </aside>
-    <div className="vendor-dashboard-main">
-    <div className="vendor-metrics">
-      <div><Store size={18} /><strong>{products.length}</strong><span>{t('Listings')}</span></div>
-      <div><Boxes size={18} /><strong>{inventory.filter((item) => item.quantity > 0).length}</strong><span>{t('Stock records')}</span></div>
-      <div><Truck size={18} /><strong>{orderItems.filter((item) => !['delivered', 'cancelled'].includes(item.vendor_fulfillment_status)).length}</strong><span>{t('Open fulfilment')}</span></div>
-      <div><ClipboardList size={18} /><strong>{openCases}</strong><span>{t('Open cases')}</span></div>
+    {/* 2. Top Metric KPI Cards */}
+    <div className="vendor-stat-grid" role="region" aria-label={t('Seller performance metrics')}>
+      <button
+        type="button"
+        className={`vendor-stat-card ${tab === 'listings' ? 'is-active' : ''}`}
+        onClick={() => setTab('listings')}
+      >
+        <div className="vendor-stat-icon vendor-stat-icon--emerald">
+          <Package size={22} aria-hidden="true" />
+        </div>
+        <div className="vendor-stat-content">
+          <span className="vendor-stat-label">{t('Listings')}</span>
+          <strong className="vendor-stat-value">{products.length}</strong>
+          <span className="vendor-stat-sub">
+            {productStats.approved} {t('live')} · {productStats.pending} {t('in review')}
+          </span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        className={`vendor-stat-card ${tab === 'inventory' ? 'is-active' : ''}`}
+        onClick={() => setTab('inventory')}
+      >
+        <div className="vendor-stat-icon vendor-stat-icon--blue">
+          <Boxes size={22} aria-hidden="true" />
+        </div>
+        <div className="vendor-stat-content">
+          <span className="vendor-stat-label">{t('Inventory')}</span>
+          <strong className="vendor-stat-value">
+            {inventory.filter((item) => item.quantity > 0).length}
+          </strong>
+          <span className="vendor-stat-sub">
+            {inventory.reduce((sum, item) => sum + Number(item.quantity), 0)} {t('units in stock')}
+          </span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        className={`vendor-stat-card ${tab === 'orders' ? 'is-active' : ''}`}
+        onClick={() => setTab('orders')}
+      >
+        <div className="vendor-stat-icon vendor-stat-icon--amber">
+          <Truck size={22} aria-hidden="true" />
+        </div>
+        <div className="vendor-stat-content">
+          <span className="vendor-stat-label">{t('Fulfilment')}</span>
+          <strong className="vendor-stat-value">
+            {orderItems.filter((item) => !['delivered', 'cancelled'].includes(item.vendor_fulfillment_status)).length}
+          </strong>
+          <span className="vendor-stat-sub">
+            {orderItems.filter((item) => item.pickup_status === 'ready_for_pickup').length} {t('ready for pickup')}
+          </span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        className={`vendor-stat-card ${tab === 'cases' ? 'is-active' : ''}`}
+        onClick={() => setTab('cases')}
+      >
+        <div className="vendor-stat-icon vendor-stat-icon--purple">
+          <ClipboardList size={22} aria-hidden="true" />
+        </div>
+        <div className="vendor-stat-content">
+          <span className="vendor-stat-label">{t('Customer cases')}</span>
+          <strong className="vendor-stat-value">{openCases}</strong>
+          <span className="vendor-stat-sub">
+            {openCases > 0 ? t('Action required') : t('All clear')}
+          </span>
+        </div>
+      </button>
     </div>
 
-    {tab === 'overview' && <div className="vendor-grid">
-      <section className="placeholder-panel vendor-stack">
-        <h2>{t('Recent listings')}</h2>
-        {products.slice(0, 5).map((product) => <div className="vendor-list__row" key={product.id}><div><strong>{product.name}</strong><small>{formatPKR(Number(product.food_unit_price ?? product.price))}{product.food_selling_unit ? ` / ${product.food_selling_unit}` : ''} · {product.publication_status.replace(/_/g, ' ')} · {t('moderation')}: {product.moderation_status.replace(/_/g, ' ')}</small></div><StatusBadge status={product.publication_status} /></div>)}
-        {products.length === 0 && <p>{t('No listings yet. Create your first listing to enter moderation.')}</p>}
-        <button type="button" className="text-link" onClick={() => { setCreatingProduct(true); setTab('listings') }}><Plus size={14} /> {t('Create a listing')}</button>
-      </section>
-      <section className="placeholder-panel vendor-stack">
-        <h2>{t('Latest orders')}</h2>
-        {orderItems.slice(0, 5).map((item) => <div className="vendor-list__row" key={item.id}><div><strong>{item.order_number} · {item.product_name_snapshot}</strong><small>{t('Qty')} {item.quantity} · {formatPKR(Number(item.line_total))}</small></div><StatusBadge status={item.vendor_fulfillment_status} /></div>)}
-        {orderItems.length === 0 && <p>{t('No vendor order items yet. Buyer contact and address details are intentionally excluded from this view.')}</p>}
-        <button type="button" className="text-link" onClick={() => setTab('orders')}>{t('Open fulfilment')} <ArrowRight size={14} /></button>
-      </section>
-    </div>}
+    {/* 3. Main Layout: Sidebar & Content */}
+    <div className="vendor-pro-layout">
+      {/* Sidebar Navigation */}
+      <aside className="vendor-pro-sidebar" aria-label={t('Vendor dashboard navigation')}>
+        <span className="vendor-pro-sidebar__heading">{t('Store Navigation')}</span>
+        <nav className="vendor-pro-nav">
+          {([
+            { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+            { value: 'listings', label: 'Listings', icon: PackageSearch },
+            { value: 'inventory', label: 'Inventory', icon: Boxes },
+            { value: 'orders', label: 'Fulfilment', icon: Truck },
+            { value: 'cases', label: 'Cases & Support', icon: ClipboardList },
+            { value: 'settings', label: 'Shop settings', icon: Settings },
+          ] as const).map(({ value, label, icon: Icon }) => {
+            const count = tabCounts[value as DashboardTab]
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`vendor-pro-nav-btn ${tab === value ? 'is-active' : ''}`}
+                aria-current={tab === value ? 'page' : undefined}
+                onClick={() => setTab(value)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span className="vendor-pro-nav-btn__label">{t(label)}</span>
+                {count !== undefined && count > 0 && (
+                  <span className="vendor-pro-nav-btn__badge">{count}</span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
 
-    {tab === 'listings' && <section className="account-panel">
-      <div className="account-panel__heading"><div><h2>{t('Listings')}</h2><p>{t('Vendor edits are re-checked by moderation before publication. Supplier costs stay private.')}</p></div>{!creatingProduct && !editingProduct && <button type="button" className="button button--dark" onClick={() => setCreatingProduct(true)}><Plus size={15} /> {t('New listing')}</button>}</div>
-      {(creatingProduct || editingProduct) && <ProductEditor
-        key={editingProduct?.id ?? 'new-vendor-product'}
-        product={editingProduct}
-        categories={categories.map((category) => ({ id: category.id, name: category.name, slug: category.slug, parent_id: category.parentId, isFoodCategory: category.isFoodCategory }))}
-        onCancel={() => { setCreatingProduct(false); setEditingProduct(null) }}
-        onSaved={async (message) => { push(message, 'success'); setCreatingProduct(false); setEditingProduct(null); await load() }}
-      />}
-      {products.length === 0 && !creatingProduct && <div className="empty-state"><Package size={28} /><h2>{t('No listings yet')}</h2><p>{t('Submit a listing for moderation. It will appear in the catalog once approved.')}</p></div>}
-      {products.length > 0 && <div className="admin-table-wrap"><table className="admin-table vendor-table"><thead><tr><th>{t('Product')}</th><th>{t('Price')}</th><th>{t('Publication')}</th><th>{t('Moderation')}</th><th>{t('Costs')}</th><th>{t('Actions')}</th></tr></thead><tbody>{products.map((product) => <tr key={product.id}><td data-label={t('Product')}><strong>{product.name}</strong><small>{categoriesById.get(product.category_id ?? '') ?? t('No category')}</small></td><td data-label={t('Price')}>{formatPKR(Number(product.food_unit_price ?? product.price))}{product.food_selling_unit ? ` / ${product.food_selling_unit}` : ''}</td><td data-label={t('Publication')}><StatusBadge status={product.publication_status} /></td><td data-label={t('Moderation')}><StatusBadge status={product.moderation_status} /></td><td data-label={t('Costs')}><small>{t('Supplier')}: {product.supplier_cost === null ? '—' : formatPKR(Number(product.supplier_cost))}<br />{t('Fulfilment')}: {formatPKR(Number(product.fulfillment_expense))}</small></td><td data-label={t('Actions')}><button type="button" className="text-button" onClick={() => { setEditingProduct(product); setCreatingProduct(false) }}><Pencil size={14} /> {t('Edit')}</button>{product.moderation_status === 'approved' && <button type="button" className="text-button" onClick={() => setVisibilityTarget(product)}>{product.vendor_hidden ? t('Unhide') : t('Hide')}</button>}{!deletionRequests.some((request) => request.product_id === product.id && request.status === 'pending') && <button type="button" className="text-button text-button--danger" onClick={() => { setDeletionTarget(product); setDeletionReason('') }}>{t('Request deletion')}</button>}{deletionRequests.some((request) => request.product_id === product.id && request.status === 'pending') && <StatusBadge status="pending" />}{isFoodCategoryId(product.category_id) && <button type="button" className="text-button" onClick={() => { setStockProduct(product); setStockQuantity(String(product.daily_available_quantity ?? 0)); setStockMinimum(String(product.daily_minimum_quantity ?? 1)); setStockMinimumValue('0') }}>{t('Set today’s stock')}</button>}</td></tr>)}</tbody></table></div>}
-    </section>}
+        <div className="vendor-pro-sidebar__footer">
+          <Link to="/account" className="vendor-pro-sidebar__link">
+            <Settings size={15} aria-hidden="true" />
+            <span>{t('Account settings')}</span>
+          </Link>
+          <Link to={`/shops/${profile.slug}`} className="vendor-pro-sidebar__link" target="_blank" rel="noreferrer">
+            <ExternalLink size={15} aria-hidden="true" />
+            <span>{t('Public Storefront')}</span>
+          </Link>
+        </div>
+      </aside>
 
-    {stockProduct && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingStock) setStockProduct(null) }}>
-      <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="daily-stock-title">
-        <div className="account-panel__heading"><div><h2 id="daily-stock-title">{t('Set today’s stock')}</h2><p>{stockProduct.name}</p></div><button type="button" className="icon-button" aria-label={t('Close')} onClick={() => setStockProduct(null)} disabled={savingStock}><X size={18} /></button></div>
-        <label className="form-field"><span>{t('Today’s available stock')} {stockProduct.food_selling_unit ? `(${stockProduct.food_quantity_increment} ${stockProduct.food_selling_unit === 'kg' ? 'g' : stockProduct.food_selling_unit === 'l' ? 'ml' : stockProduct.food_selling_unit} per step)` : ''}</span><input type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} /></label>
-        <label className="form-field"><span>{t('Minimum order quantity (steps)')}</span><input type="number" min="1" step="1" value={stockMinimum} onChange={(event) => setStockMinimum(event.target.value)} /></label>
-        <label className="form-field"><span>{t('Shop minimum order value (PKR)')}</span><input type="number" min="0" step="1" value={stockMinimumValue} onChange={(event) => setStockMinimumValue(event.target.value)} /></label>
-        <div className="dialog-actions"><button type="button" className="button button--outline" onClick={() => setStockProduct(null)} disabled={savingStock}>{t('Cancel')}</button><button type="button" className="button button--dark" disabled={savingStock || !Number.isInteger(Number(stockQuantity)) || Number(stockQuantity)<0 || !Number.isInteger(Number(stockMinimum)) || Number(stockMinimum)<1 || !Number.isFinite(Number(stockMinimumValue)) || Number(stockMinimumValue)<0} onClick={async () => { setSavingStock(true); try { await setVendorDailyAvailability({ productId: stockProduct.id, isDailyItem: true, availableQuantity: Number(stockQuantity), minimumQuantity: Number(stockMinimum), minimumOrderValue: Number(stockMinimumValue) }); push(t('Today’s availability and minimum order rules saved.'), 'success'); setStockProduct(null); await load() } catch (cause) { push(cause instanceof Error ? cause.message : t('Availability update failed.'), 'error') } finally { setSavingStock(false) } }}>{savingStock ? t('Saving…') : t('Save availability')}</button></div>
-      </section>
-    </div>}
-    {tab === 'inventory' && <section className="account-panel">
-      <div className="account-panel__heading"><div><h2>{t('Inventory')}</h2><p>{t('Stock changes are recorded in the inventory movement log.')}</p></div><div className="vendor-form__actions"><button type="button" className="button button--dark" onClick={() => { setInventoryAddProductId(products[0]?.id ?? ''); setInventoryAddQuantity('0'); setInventoryAddNote(''); setInventoryAddOpen(true) }} disabled={!products.length}><Plus size={15} /> {t('Add stock')}</button><button type="button" className="button button--outline" onClick={() => void load()}><RefreshCw size={15} /> {t('Refresh')}</button></div></div>
-      {inventory.length === 0 ? <div className="empty-state"><Boxes size={28} /><h2>{t('No stock records')}</h2><p>{t('Stock records appear when a listing with inventory tracking is created.')}</p></div> : <div className="admin-table-wrap"><table className="admin-table vendor-table"><thead><tr><th>{t('Product')}</th><th>{t('Variants')}</th><th>{t('Total quantity')}</th><th>{t('Updated')}</th><th>{t('Adjust')}</th></tr></thead><tbody>{inventoryGroups.map((group) => { const total = group.rows.reduce((sum, row) => sum + Number(row.quantity), 0); const updated = group.rows.reduce((latest, row) => row.updated_at > latest ? row.updated_at : latest, group.rows[0].updated_at); return <tr key={group.productId}><td data-label={t('Product')}><strong>{group.productName}</strong></td><td data-label={t('Variants')}>{group.rows.length === 1 && !group.rows[0].variant_id ? t('Default') : <><strong>{group.rows.length} {t('variants')}</strong><small>{group.rows.map((row) => row.variant_name ?? t('Default')).join(' · ')}</small></>}</td><td data-label={t('Total quantity')}><strong>{total}</strong></td><td data-label={t('Updated')}><small>{new Date(updated).toLocaleDateString()}</small></td><td data-label={t('Adjust')}><button type="button" className="text-button" onClick={() => openInventoryEditor(group)}><Pencil size={14}/> {t('Edit stock')}</button></td></tr> })}</tbody></table></div>}
-      {editingInventoryProductId && (() => { const group = inventoryGroups.find((entry) => entry.productId === editingInventoryProductId); if (!group) return null; return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingInventoryGroup) setEditingInventoryProductId(null) }}><section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-inventory-edit-title"><div className="account-panel__heading"><div><h2 id="vendor-inventory-edit-title">{t('Edit product stock')}</h2><p>{group.productName}</p><small>{t('Update all variants together. Each variant keeps its own stock record.')}</small></div><button type="button" className="icon-button" aria-label={t('Close')} disabled={savingInventoryGroup} onClick={() => setEditingInventoryProductId(null)}><X size={18}/></button></div><form className="vendor-form" onSubmit={async (event) => { event.preventDefault(); if (!inventoryEditNote.trim()) { push(t('Add a reason for this stock adjustment.'), 'error'); return }; const changes = group.rows.map((row) => ({ row, value: Number(inventoryEditQuantities[row.id]) })); if (changes.some(({ value }) => !Number.isInteger(value) || value < 0)) { push(t('Every variant quantity must be a whole number of zero or more.'), 'error'); return }; setSavingInventoryGroup(true); try { for (const change of changes) await adjustOwnInventory(change.row.id, change.value, inventoryEditNote.trim()); setEditingInventoryProductId(null); setInventoryEditNote(''); push(t('All product variant quantities updated.'), 'success'); await load() } catch (cause) { push(cause instanceof Error ? cause.message : t('Inventory could not be updated. Some earlier variants may already have been saved; refresh before retrying.'), 'error') } finally { setSavingInventoryGroup(false) } }}><div className="vendor-form__grid">{group.rows.map((row) => <label className="form-field" key={row.id}><span>{row.variant_name ?? t('Default product')}</span><input type="number" min="0" step="1" required value={inventoryEditQuantities[row.id] ?? '0'} onChange={(event) => setInventoryEditQuantities((current) => ({ ...current, [row.id]: event.target.value }))}/><small>{t('Current quantity')}: {row.quantity}</small></label>)}<label className="form-field"><span>{t('Adjustment reason')}</span><input required value={inventoryEditNote} onChange={(event) => setInventoryEditNote(event.target.value)} placeholder={t('e.g. Stock count / supplier restock')}/></label></div><div className="dialog-actions"><button type="button" className="button button--outline" disabled={savingInventoryGroup} onClick={() => setEditingInventoryProductId(null)}>{t('Cancel')}</button><button type="submit" className="button button--dark" disabled={savingInventoryGroup}>{savingInventoryGroup ? t('Saving…') : t('Save all quantities')}</button></div></form></section></div> })()}
-    </section>}
+      {/* Main Tab Views */}
+      <main className="vendor-pro-main">
+        {/* TAB 1: OVERVIEW */}
+        {tab === 'overview' && (
+          <div className="vendor-pro-panel">
+            <div className="vendor-overview-welcome">
+              <div>
+                <h3>{t('Welcome back')}, {profile.shop_name}! 👋</h3>
+                <p>{t('Here is a summary of your shop activity, active listings, and pending deliveries.')}</p>
+              </div>
+              <div className="vendor-quick-actions">
+                <button
+                  type="button"
+                  className="vendor-quick-action-btn"
+                  onClick={() => {
+                    setCreatingProduct(true)
+                    setEditingProduct(null)
+                    setTab('listings')
+                  }}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  <span>{t('Add Product')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="vendor-quick-action-btn"
+                  onClick={() => setTab('inventory')}
+                >
+                  <Boxes size={14} aria-hidden="true" />
+                  <span>{t('Update Stock')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="vendor-quick-action-btn"
+                  onClick={() => setTab('orders')}
+                >
+                  <Truck size={14} aria-hidden="true" />
+                  <span>{t('View Orders')}</span>
+                </button>
+              </div>
+            </div>
 
-    {inventoryAddOpen && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingProductAction) setInventoryAddOpen(false) }}><section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-add-stock-title"><div className="account-panel__heading"><div><h2 id="vendor-add-stock-title">{t('Add or update stock')}</h2><p>{t('Choose one of your own products and set its current stock.')}</p></div><button type="button" className="icon-button" onClick={() => setInventoryAddOpen(false)} disabled={savingProductAction}><X size={18}/></button></div><label className="form-field"><span>{t('Product')}</span><select value={inventoryAddProductId} onChange={(event) => setInventoryAddProductId(event.target.value)}>{products.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="form-field"><span>{t('Available quantity')}</span><input type="number" min="0" step="1" value={inventoryAddQuantity} onChange={(event) => setInventoryAddQuantity(event.target.value)}/></label><label className="form-field"><span>{t('Adjustment note')}</span><input value={inventoryAddNote} onChange={(event) => setInventoryAddNote(event.target.value)} required minLength={2}/></label><div className="dialog-actions"><button type="button" className="button button--outline" onClick={() => setInventoryAddOpen(false)} disabled={savingProductAction}>{t('Cancel')}</button><button type="button" className="button button--dark" disabled={savingProductAction || !inventoryAddProductId || !Number.isInteger(Number(inventoryAddQuantity)) || Number(inventoryAddQuantity)<0 || inventoryAddNote.trim().length<2} onClick={async () => { setSavingProductAction(true); try { await setOwnProductInventory(inventoryAddProductId,Number(inventoryAddQuantity),inventoryAddNote); push(t('Inventory updated.'),'success'); setInventoryAddOpen(false); await load() } catch(cause) { push(cause instanceof Error ? cause.message : t('Inventory could not be updated.'),'error') } finally { setSavingProductAction(false) } }}>{savingProductAction ? t('Saving…') : t('Save stock')}</button></div></section></div>}
-    {visibilityTarget && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if(event.target===event.currentTarget && !savingProductAction) setVisibilityTarget(null) }}><section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-visibility-title"><h2 id="vendor-visibility-title">{visibilityTarget.vendor_hidden ? t('Unhide product?') : t('Hide product?')}</h2><p>{visibilityTarget.name}</p><p>{t('This changes storefront visibility only. It does not change moderation approval.')}</p><div className="dialog-actions"><button className="button button--outline" type="button" onClick={() => setVisibilityTarget(null)} disabled={savingProductAction}>{t('Cancel')}</button><button className="button button--dark" type="button" disabled={savingProductAction} onClick={async()=>{setSavingProductAction(true);try{await setVendorProductVisibility(visibilityTarget.id,!visibilityTarget.vendor_hidden);setVisibilityTarget(null);push(t('Product visibility updated.'),'success');await load()}catch(cause){push(cause instanceof Error?cause.message:t('Visibility update failed.'),'error')}finally{setSavingProductAction(false)}}}>{t('Confirm')}</button></div></section></div>}
-    {deletionTarget && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if(event.target===event.currentTarget && !savingProductAction) setDeletionTarget(null) }}><section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-delete-request-title"><h2 id="vendor-delete-request-title">{t('Request product deletion')}</h2><p>{deletionTarget.name}</p><label className="form-field"><span>{t('Reason for deletion')} *</span><textarea rows={4} value={deletionReason} onChange={(event)=>setDeletionReason(event.target.value)} minLength={3} required placeholder={t('Tell the JTBazar admin why this product should be removed.')}/></label><p className="form-help">{t('The product will not be deleted until an admin approves this request.')}</p><div className="dialog-actions"><button className="button button--outline" type="button" onClick={()=>setDeletionTarget(null)} disabled={savingProductAction}>{t('Cancel')}</button><button className="button button--dark" type="button" disabled={savingProductAction || deletionReason.trim().length<3} onClick={async()=>{setSavingProductAction(true);try{await requestOwnProductDeletion(deletionTarget.id,deletionReason);push(t('Deletion request sent to admin.'),'success');setDeletionTarget(null);await load()}catch(cause){push(cause instanceof Error?cause.message:t('Deletion request failed.'),'error')}finally{setSavingProductAction(false)}}}>{savingProductAction?t('Submitting…'):t('Submit request')}</button></div></section></div>}
-    {tab === 'orders' && <VendorOrdersPanel items={orderItems} products={products} onError={(message) => push(message, 'error')} />}
+            <div className="vendor-overview-grid">
+              {/* Recent Listings Box */}
+              <section className="vendor-overview-card">
+                <div className="vendor-overview-card__head">
+                  <h3>{t('Recent listings')}</h3>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setTab('listings')}
+                  >
+                    {t('View all')} ({products.length}) →
+                  </button>
+                </div>
+                {products.length === 0 ? (
+                  <div className="vendor-empty-state">
+                    <div className="vendor-empty-state__icon">
+                      <Package size={24} />
+                    </div>
+                    <h3>{t('No listings yet')}</h3>
+                    <p>{t('Create your first listing to enter moderation.')}</p>
+                    <button
+                      type="button"
+                      className="vendor-btn vendor-btn--primary vendor-btn--sm"
+                      onClick={() => {
+                        setCreatingProduct(true)
+                        setEditingProduct(null)
+                        setTab('listings')
+                      }}
+                    >
+                      <Plus size={14} /> {t('Create a listing')}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {products.slice(0, 5).map((product) => {
+                      const img = productImages[product.id]
+                      return (
+                        <div className="vendor-pro-row" key={product.id}>
+                          <div className="vendor-pro-row__left">
+                            <div className="vendor-pro-row__thumb">
+                              {img ? (
+                                <img src={img} alt={product.name} loading="lazy" />
+                              ) : (
+                                <Package size={20} />
+                              )}
+                            </div>
+                            <div className="vendor-pro-row__info">
+                              <strong>{product.name}</strong>
+                              <small>
+                                {formatPKR(Number(product.food_unit_price ?? product.price))}
+                                {product.food_selling_unit ? ` / ${product.food_selling_unit}` : ''}
+                                {' · '}
+                                {categoriesById.get(product.category_id ?? '') ?? t('No category')}
+                              </small>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <StatusBadge status={product.moderation_status} />
+                            <button
+                              type="button"
+                              className="vendor-act-btn"
+                              onClick={() => {
+                                setEditingProduct(product)
+                                setCreatingProduct(false)
+                                setTab('listings')
+                              }}
+                            >
+                              <Pencil size={12} /> {t('Edit')}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
 
-    {tab === 'cases' && <section className="account-panel">
-      <div className="account-panel__heading"><div><h2>{t('Support & cases')}</h2><p>{t('Create a support ticket or respond to customer returns and complaints.')}</p></div><button type="button" className="button button--outline" onClick={() => void load()}><RefreshCw size={15} /> {t('Refresh')}</button></div>
-      <VendorSupportDesk sellerId={profile.id} onError={(message) => push(message, 'error')} />
-      <h3 className="vendor-cases-subheading">{t('Customer cases')}</h3>
-      {cases.length === 0 ? <div className="empty-state"><ClipboardList size={28} /><h2>{t('No cases')}</h2><p>{t('Buyer cases for your items will appear here.')}</p></div> : <div className="case-list">{cases.map((item) => <CaseResponse key={item.id} item={item} onResponded={async () => { push(t('Response sent.'), 'success'); await load() }} onError={(message) => push(message, 'error')} />)}</div>}
-    </section>}
+              {/* Latest Orders Box */}
+              <section className="vendor-overview-card">
+                <div className="vendor-overview-card__head">
+                  <h3>{t('Latest orders')}</h3>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setTab('orders')}
+                  >
+                    {t('Open fulfilment')} →
+                  </button>
+                </div>
+                {orderItems.length === 0 ? (
+                  <div className="vendor-empty-state">
+                    <div className="vendor-empty-state__icon">
+                      <Truck size={24} />
+                    </div>
+                    <h3>{t('No customer orders yet')}</h3>
+                    <p>{t('Orders for your products will appear here once customers purchase your items.')}</p>
+                  </div>
+                ) : (
+                  <div>
+                    {orderItems.slice(0, 5).map((item) => (
+                      <div className="vendor-pro-row" key={item.id}>
+                        <div className="vendor-pro-row__left">
+                          <div className="vendor-pro-row__thumb">
+                            {item.product_image_url ? (
+                              <img src={item.product_image_url} alt="" loading="lazy" />
+                            ) : (
+                              <Package size={20} />
+                            )}
+                          </div>
+                          <div className="vendor-pro-row__info">
+                            <strong>{item.order_number} · {item.product_name_snapshot}</strong>
+                            <small>
+                              {t('Qty')} {item.quantity} · {formatPKR(Number(item.line_total))}
+                            </small>
+                          </div>
+                        </div>
+                        <StatusBadge status={item.vendor_fulfillment_status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
 
-    {tab === 'settings' && <section className="account-panel">
-      <div className="account-panel__heading"><div><h2>{t('Shop settings')}</h2><p>{t('Update the public details and logo customers see on your shop page.')}</p></div></div>
-      <ShopForm profile={profile} mode="settings" onSaved={(saved) => { setProfile(saved); push(t('Shop settings saved.'), 'success') }} />
-    </section>}
-    </div></div>
+        {/* TAB 2: LISTINGS (PRODUCTS MANAGEMENT WITH POWERFUL FILTERS) */}
+        {tab === 'listings' && (
+          <section className="vendor-pro-panel">
+            <div className="vendor-pro-panel__header">
+              <div className="vendor-pro-panel__heading">
+                <h2>{t('Listings & Product Catalog')}</h2>
+                <p>{t('Search, filter and manage your catalog. Keep your prices, stock and details up to date.')}</p>
+              </div>
+              {!creatingProduct && !editingProduct && (
+                <button
+                  type="button"
+                  className="vendor-btn vendor-btn--primary"
+                  onClick={() => {
+                    setCreatingProduct(true)
+                    setEditingProduct(null)
+                  }}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  <span>{t('New listing')}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Product Create / Edit Form */}
+            {(creatingProduct || editingProduct) && (
+              <ProductEditor
+                key={editingProduct?.id ?? 'new-vendor-product'}
+                product={editingProduct}
+                categories={categories.map((category) => ({
+                  id: category.id,
+                  name: category.name,
+                  slug: category.slug,
+                  parent_id: category.parentId,
+                  isFoodCategory: category.isFoodCategory,
+                }))}
+                onCancel={() => {
+                  setCreatingProduct(false)
+                  setEditingProduct(null)
+                }}
+                onSaved={async (message) => {
+                  push(message, 'success')
+                  setCreatingProduct(false)
+                  setEditingProduct(null)
+                  await load()
+                }}
+              />
+            )}
+
+            {!creatingProduct && !editingProduct && (
+              <>
+                {/* Quick Status Chips */}
+                <div className="vendor-filter-chips" role="toolbar" aria-label={t('Quick status filter')}>
+                  <button
+                    type="button"
+                    className={`vendor-chip ${moderationFilter === 'all' && statusFilter === 'all' && stockFilter === 'all' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setModerationFilter('all')
+                      setStatusFilter('all')
+                      setStockFilter('all')
+                      setProductPage(0)
+                    }}
+                  >
+                    <span>{t('All Products')}</span>
+                    <span className="vendor-chip__count">{productStats.total}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`vendor-chip ${moderationFilter === 'approved' && statusFilter !== 'hidden' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setModerationFilter('approved')
+                      setStatusFilter('all')
+                      setStockFilter('all')
+                      setProductPage(0)
+                    }}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>{t('Approved & Live')}</span>
+                    <span className="vendor-chip__count">{productStats.approved}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`vendor-chip ${moderationFilter === 'pending_review' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setModerationFilter('pending_review')
+                      setStatusFilter('all')
+                      setStockFilter('all')
+                      setProductPage(0)
+                    }}
+                  >
+                    <Clock3 size={13} />
+                    <span>{t('Under Review')}</span>
+                    <span className="vendor-chip__count">{productStats.pending}</span>
+                  </button>
+
+                  {productStats.rejected > 0 && (
+                    <button
+                      type="button"
+                      className={`vendor-chip ${moderationFilter === 'rejected' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setModerationFilter('rejected')
+                        setStatusFilter('all')
+                        setStockFilter('all')
+                        setProductPage(0)
+                      }}
+                    >
+                      <AlertCircle size={13} />
+                      <span>{t('Rejected')}</span>
+                      <span className="vendor-chip__count">{productStats.rejected}</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className={`vendor-chip ${statusFilter === 'hidden' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setStatusFilter('hidden')
+                      setModerationFilter('all')
+                      setStockFilter('all')
+                      setProductPage(0)
+                    }}
+                  >
+                    <EyeOff size={13} />
+                    <span>{t('Hidden')}</span>
+                    <span className="vendor-chip__count">{productStats.hidden}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`vendor-chip ${stockFilter === 'low_stock' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setStockFilter('low_stock')
+                      setProductPage(0)
+                    }}
+                  >
+                    <Boxes size={13} />
+                    <span>{t('Low Stock')}</span>
+                    <span className="vendor-chip__count">{productStats.lowOrOut}</span>
+                  </button>
+                </div>
+
+                {/* Advanced Search & Filter Toolbar */}
+                <div className="vendor-toolbar">
+                  <div className="vendor-toolbar__left">
+                    {/* Search Input */}
+                    <div className="vendor-search-input">
+                      <Search size={16} />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value)
+                          setProductPage(0)
+                        }}
+                        placeholder={t('Search by name, SKU, slug...')}
+                        aria-label={t('Search products')}
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          className="vendor-search-clear"
+                          onClick={() => setSearchQuery('')}
+                          aria-label={t('Clear search')}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter */}
+                    <select
+                      className="vendor-select"
+                      value={selectedCategory}
+                      onChange={(e) => {
+                        setSelectedCategory(e.target.value)
+                        setProductPage(0)
+                      }}
+                      aria-label={t('Filter by category')}
+                    >
+                      <option value="">{t('All Categories')}</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Moderation Status Filter */}
+                    <select
+                      className="vendor-select"
+                      value={moderationFilter}
+                      onChange={(e) => {
+                        setModerationFilter(e.target.value)
+                        setProductPage(0)
+                      }}
+                      aria-label={t('Filter by moderation')}
+                    >
+                      <option value="all">{t('All Moderation')}</option>
+                      <option value="approved">{t('Approved')}</option>
+                      <option value="pending_review">{t('Under Review')}</option>
+                      <option value="rejected">{t('Rejected')}</option>
+                    </select>
+
+                    {/* Visibility Filter */}
+                    <select
+                      className="vendor-select"
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value)
+                        setProductPage(0)
+                      }}
+                      aria-label={t('Filter by visibility')}
+                    >
+                      <option value="all">{t('All Visibility')}</option>
+                      <option value="published">{t('Live / Published')}</option>
+                      <option value="hidden">{t('Hidden from Store')}</option>
+                    </select>
+
+                    {/* Stock Level Filter */}
+                    <select
+                      className="vendor-select"
+                      value={stockFilter}
+                      onChange={(e) => {
+                        setStockFilter(e.target.value)
+                        setProductPage(0)
+                      }}
+                      aria-label={t('Filter by stock level')}
+                    >
+                      <option value="all">{t('All Stock Levels')}</option>
+                      <option value="in_stock">{t('In Stock (>0)')}</option>
+                      <option value="low_stock">{t('Low Stock (1-5)')}</option>
+                      <option value="out_of_stock">{t('Out of Stock (0)')}</option>
+                    </select>
+
+                    {/* Sort By Dropdown */}
+                    <select
+                      className="vendor-select"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      aria-label={t('Sort products')}
+                    >
+                      <option value="newest">{t('Newest first')}</option>
+                      <option value="oldest">{t('Oldest first')}</option>
+                      <option value="price_asc">{t('Price: Low to High')}</option>
+                      <option value="price_desc">{t('Price: High to Low')}</option>
+                      <option value="name_asc">{t('Name: A to Z')}</option>
+                      <option value="name_desc">{t('Name: Z to A')}</option>
+                      <option value="stock_asc">{t('Stock: Low to High')}</option>
+                      <option value="stock_desc">{t('Stock: High to Low')}</option>
+                    </select>
+                  </div>
+
+                  <div className="vendor-toolbar__right">
+                    {/* View Switcher: Table vs Grid */}
+                    <div className="vendor-view-switcher" role="group" aria-label={t('Catalog layout view')}>
+                      <button
+                        type="button"
+                        className={`vendor-view-btn ${viewMode === 'table' ? 'is-active' : ''}`}
+                        onClick={() => setViewMode('table')}
+                        title={t('Table view')}
+                        aria-label={t('Table view')}
+                      >
+                        <List size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`vendor-view-btn ${viewMode === 'grid' ? 'is-active' : ''}`}
+                        onClick={() => setViewMode('grid')}
+                        title={t('Grid cards view')}
+                        aria-label={t('Grid cards view')}
+                      >
+                        <LayoutGrid size={18} />
+                      </button>
+                    </div>
+
+                    {activeFiltersCount > 0 && (
+                      <button
+                        type="button"
+                        className="vendor-act-btn"
+                        onClick={resetAllFilters}
+                        title={t('Reset all active filters')}
+                      >
+                        <X size={14} />
+                        <span>{t('Reset')} ({activeFiltersCount})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Filter Tags & Count Bar */}
+                <div className="vendor-active-filters-bar">
+                  <span>
+                    {t('Showing')} <strong>{filteredProducts.length}</strong> {t('of')} <strong>{products.length}</strong> {t('products')}
+                  </span>
+                  {activeFiltersCount > 0 && (
+                    <div className="vendor-active-tags">
+                      {searchQuery.trim() && (
+                        <span className="vendor-tag">
+                          <span>{t('Search')}: "{searchQuery}"</span>
+                          <button type="button" onClick={() => setSearchQuery('')} aria-label={t('Remove search')}>×</button>
+                        </span>
+                      )}
+                      {selectedCategory && (
+                        <span className="vendor-tag">
+                          <span>{categoriesById.get(selectedCategory) ?? selectedCategory}</span>
+                          <button type="button" onClick={() => setSelectedCategory('')} aria-label={t('Remove category filter')}>×</button>
+                        </span>
+                      )}
+                      {moderationFilter !== 'all' && (
+                        <span className="vendor-tag">
+                          <span>{t('Moderation')}: {t(moderationFilter)}</span>
+                          <button type="button" onClick={() => setModerationFilter('all')} aria-label={t('Remove moderation filter')}>×</button>
+                        </span>
+                      )}
+                      {statusFilter !== 'all' && (
+                        <span className="vendor-tag">
+                          <span>{t('Status')}: {t(statusFilter)}</span>
+                          <button type="button" onClick={() => setStatusFilter('all')} aria-label={t('Remove status filter')}>×</button>
+                        </span>
+                      )}
+                      {stockFilter !== 'all' && (
+                        <span className="vendor-tag">
+                          <span>{t('Stock')}: {t(stockFilter.replace(/_/g, ' '))}</span>
+                          <button type="button" onClick={() => setStockFilter('all')} aria-label={t('Remove stock filter')}>×</button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Empty State: Zero Products or Filter Mismatch */}
+                {products.length === 0 ? (
+                  <div className="vendor-empty-state">
+                    <div className="vendor-empty-state__icon">
+                      <Package size={28} />
+                    </div>
+                    <h3>{t('No listings yet')}</h3>
+                    <p>{t('Submit your first product listing for moderation. It will appear on your public store once approved.')}</p>
+                    <button
+                      type="button"
+                      className="vendor-btn vendor-btn--primary"
+                      onClick={() => {
+                        setCreatingProduct(true)
+                        setEditingProduct(null)
+                      }}
+                    >
+                      <Plus size={16} /> {t('Create First Listing')}
+                    </button>
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="vendor-empty-state">
+                    <div className="vendor-empty-state__icon">
+                      <PackageSearch size={28} />
+                    </div>
+                    <h3>{t('No matching products found')}</h3>
+                    <p>{t('Try adjusting your search terms, changing category or clearing your active filters.')}</p>
+                    <button
+                      type="button"
+                      className="vendor-btn vendor-btn--primary vendor-btn--sm"
+                      onClick={resetAllFilters}
+                    >
+                      {t('Clear all filters')}
+                    </button>
+                  </div>
+                ) : viewMode === 'table' ? (
+                  /* VIEW MODE 1: PRO DATA TABLE */
+                  <div className="vendor-pro-table-wrap">
+                    <table className="vendor-pro-table">
+                      <thead>
+                        <tr>
+                          <th>{t('Product')}</th>
+                          <th>{t('Price')}</th>
+                          <th>{t('Moderation')}</th>
+                          <th>{t('Store Status')}</th>
+                          <th>{t('Stock')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('Actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedProducts.map((product) => {
+                          const stock = stockByProductId.get(product.id) ?? 0
+                          const img = productImages[product.id]
+                          const isFood = isFoodCategoryId(product.category_id)
+                          const hasPendingDeletion = deletionRequests.some(
+                            (r) => r.product_id === product.id && r.status === 'pending'
+                          )
+
+                          return (
+                            <tr key={product.id}>
+                              {/* Product Thumbnail & Meta */}
+                              <td>
+                                <div className="vendor-product-cell">
+                                  <div className="vendor-product-thumb">
+                                    {img ? (
+                                      <img src={img} alt={product.name} loading="lazy" />
+                                    ) : (
+                                      <Package size={22} />
+                                    )}
+                                  </div>
+                                  <div className="vendor-product-meta">
+                                    <span className="vendor-product-title">{product.name}</span>
+                                    <div className="vendor-product-sub">
+                                      <span className="vendor-cat-pill">
+                                        {categoriesById.get(product.category_id ?? '') ?? t('General')}
+                                      </span>
+                                      {product.sku && (
+                                        <span className="vendor-sku-pill">{product.sku}</span>
+                                      )}
+                                      {isFood && (
+                                        <span className="vendor-cat-pill" style={{ background: '#fef3c7', color: '#92400e' }}>
+                                          {t('Food')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Price */}
+                              <td>
+                                <div style={{ display: 'grid', gap: 2 }}>
+                                  <strong style={{ fontSize: 14 }}>
+                                    {formatPKR(Number(product.food_unit_price ?? product.price))}
+                                    {product.food_selling_unit ? ` / ${product.food_selling_unit}` : ''}
+                                  </strong>
+                                  {product.supplier_cost !== null && (
+                                    <small style={{ color: '#94a3b8', fontSize: 10 }}>
+                                      {t('Cost')}: {formatPKR(Number(product.supplier_cost))}
+                                    </small>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Moderation Status */}
+                              <td>
+                                <StatusBadge status={product.moderation_status} />
+                                {product.moderation_status === 'rejected' && product.moderation_reason && (
+                                  <small style={{ display: 'block', color: '#dc2626', fontSize: 11, marginTop: 4 }}>
+                                    {product.moderation_reason}
+                                  </small>
+                                )}
+                              </td>
+
+                              {/* Store Visibility */}
+                              <td>
+                                <StatusBadge status={product.vendor_hidden ? 'hidden' : 'live'} />
+                              </td>
+
+                              {/* Stock */}
+                              <td>
+                                {product.track_inventory ? (
+                                  <span className={`vendor-badge ${stock > 5 ? 'vendor-badge--instock' : stock > 0 ? 'vendor-badge--lowstock' : 'vendor-badge--nostock'}`}>
+                                    <Boxes size={12} />
+                                    <span>
+                                      {stock > 0 ? `${stock} ${t('in stock')}` : t('Out of stock')}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                                    {t('Untracked')}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td>
+                                <div className="vendor-actions-row" style={{ justifyContent: 'flex-end' }}>
+                                  <button
+                                    type="button"
+                                    className="vendor-act-btn"
+                                    onClick={() => {
+                                      setEditingProduct(product)
+                                      setCreatingProduct(false)
+                                    }}
+                                    title={t('Edit product details')}
+                                  >
+                                    <Pencil size={13} />
+                                    <span>{t('Edit')}</span>
+                                  </button>
+
+                                  {product.moderation_status === 'approved' && (
+                                    <button
+                                      type="button"
+                                      className="vendor-act-btn"
+                                      onClick={() => setVisibilityTarget(product)}
+                                      title={product.vendor_hidden ? t('Unhide from store') : t('Hide from store')}
+                                    >
+                                      {product.vendor_hidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                                      <span>{product.vendor_hidden ? t('Unhide') : t('Hide')}</span>
+                                    </button>
+                                  )}
+
+                                  {isFood && (
+                                    <button
+                                      type="button"
+                                      className="vendor-act-btn"
+                                      onClick={() => {
+                                        setStockProduct(product)
+                                        setStockQuantity(String(product.daily_available_quantity ?? 0))
+                                        setStockMinimum(String(product.daily_minimum_quantity ?? 1))
+                                        setStockMinimumValue('0')
+                                      }}
+                                      title={t("Set today's stock")}
+                                    >
+                                      <Utensils size={13} />
+                                      <span>{t('Daily')}</span>
+                                    </button>
+                                  )}
+
+                                  {!hasPendingDeletion ? (
+                                    <button
+                                      type="button"
+                                      className="vendor-act-btn vendor-act-btn--danger"
+                                      onClick={() => {
+                                        setDeletionTarget(product)
+                                        setDeletionReason('')
+                                      }}
+                                      title={t('Request deletion')}
+                                    >
+                                      <Trash2 size={13} />
+                                      <span>{t('Delete')}</span>
+                                    </button>
+                                  ) : (
+                                    <StatusBadge status="pending" />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  /* VIEW MODE 2: MODERN CARD GRID */
+                  <div className="vendor-cards-grid">
+                    {paginatedProducts.map((product) => {
+                      const stock = stockByProductId.get(product.id) ?? 0
+                      const img = productImages[product.id]
+                      const isFood = isFoodCategoryId(product.category_id)
+                      const hasPendingDeletion = deletionRequests.some(
+                        (r) => r.product_id === product.id && r.status === 'pending'
+                      )
+
+                      return (
+                        <article className="vendor-pcard" key={product.id}>
+                          <div className="vendor-pcard__media">
+                            {img ? (
+                              <img src={img} alt={product.name} loading="lazy" />
+                            ) : (
+                              <Package size={36} />
+                            )}
+                            <div className="vendor-pcard__overlay-top">
+                              <StatusBadge status={product.moderation_status} />
+                              <StatusBadge status={product.vendor_hidden ? 'hidden' : 'live'} />
+                            </div>
+                          </div>
+
+                          <div className="vendor-pcard__body">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span className="vendor-cat-pill">
+                                {categoriesById.get(product.category_id ?? '') ?? t('General')}
+                              </span>
+                              {product.sku && <span className="vendor-sku-pill">{product.sku}</span>}
+                            </div>
+
+                            <h3 className="vendor-pcard__title" title={product.name}>
+                              {product.name}
+                            </h3>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              {product.track_inventory ? (
+                                <span className={`vendor-badge ${stock > 5 ? 'vendor-badge--instock' : stock > 0 ? 'vendor-badge--lowstock' : 'vendor-badge--nostock'}`}>
+                                  <Boxes size={11} />
+                                  <span>{stock > 0 ? `${stock} ${t('in stock')}` : t('Out of stock')}</span>
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: 11 }}>{t('Untracked')}</span>
+                              )}
+                            </div>
+
+                            <div className="vendor-pcard__price-row">
+                              <span className="vendor-pcard__price">
+                                {formatPKR(Number(product.food_unit_price ?? product.price))}
+                                {product.food_selling_unit ? ` / ${product.food_selling_unit}` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="vendor-pcard__actions">
+                            <button
+                              type="button"
+                              className="vendor-act-btn"
+                              style={{ flex: 1 }}
+                              onClick={() => {
+                                setEditingProduct(product)
+                                setCreatingProduct(false)
+                              }}
+                            >
+                              <Pencil size={13} /> {t('Edit')}
+                            </button>
+
+                            {product.moderation_status === 'approved' && (
+                              <button
+                                type="button"
+                                className="vendor-act-btn"
+                                onClick={() => setVisibilityTarget(product)}
+                                title={product.vendor_hidden ? t('Unhide') : t('Hide')}
+                              >
+                                {product.vendor_hidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                              </button>
+                            )}
+
+                            {isFood && (
+                              <button
+                                type="button"
+                                className="vendor-act-btn"
+                                onClick={() => {
+                                  setStockProduct(product)
+                                  setStockQuantity(String(product.daily_available_quantity ?? 0))
+                                  setStockMinimum(String(product.daily_minimum_quantity ?? 1))
+                                  setStockMinimumValue('0')
+                                }}
+                                title={t("Set today's stock")}
+                              >
+                                <Utensils size={13} />
+                              </button>
+                            )}
+
+                            {!hasPendingDeletion ? (
+                              <button
+                                type="button"
+                                className="vendor-act-btn vendor-act-btn--danger"
+                                onClick={() => {
+                                  setDeletionTarget(product)
+                                  setDeletionReason('')
+                                }}
+                                title={t('Request deletion')}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            ) : (
+                              <StatusBadge status="pending" />
+                            )}
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {filteredProducts.length > 0 && (
+                  <div className="vendor-pagination">
+                    <div className="vendor-pagination__info">
+                      {t('Showing')}{' '}
+                      <strong>
+                        {productPage * productPageSize + 1}–{Math.min(filteredProducts.length, (productPage + 1) * productPageSize)}
+                      </strong>{' '}
+                      {t('of')} <strong>{filteredProducts.length}</strong> {t('products')}
+                    </div>
+
+                    <div className="vendor-pagination__controls">
+                      <select
+                        className="vendor-select"
+                        style={{ height: 32, padding: '0 8px', fontSize: 11 }}
+                        value={productPageSize}
+                        onChange={(e) => {
+                          setProductPageSize(Number(e.target.value))
+                          setProductPage(0)
+                        }}
+                        aria-label={t('Items per page')}
+                      >
+                        <option value={12}>12 {t('per page')}</option>
+                        <option value={24}>24 {t('per page')}</option>
+                        <option value={48}>48 {t('per page')}</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={productPage === 0}
+                        onClick={() => setProductPage((p) => Math.max(0, p - 1))}
+                      >
+                        <ChevronLeft size={14} /> {t('Previous')}
+                      </button>
+
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', padding: '0 4px' }}>
+                        {productPage + 1} / {totalProductPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={productPage + 1 >= totalProductPages}
+                        onClick={() => setProductPage((p) => p + 1)}
+                      >
+                        {t('Next')} <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* TAB 3: INVENTORY */}
+        {tab === 'inventory' && (
+          <section className="vendor-pro-panel">
+            <div className="vendor-pro-panel__header">
+              <div className="vendor-pro-panel__heading">
+                <h2>{t('Inventory & Stock Levels')}</h2>
+                <p>{t('Track product quantities and record adjustments into the movement log.')}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="vendor-btn vendor-btn--primary"
+                  onClick={() => {
+                    setInventoryAddProductId(products[0]?.id ?? '')
+                    setInventoryAddQuantity('0')
+                    setInventoryAddNote('')
+                    setInventoryAddOpen(true)
+                  }}
+                  disabled={!products.length}
+                >
+                  <Plus size={16} /> {t('Add stock')}
+                </button>
+                <button
+                  type="button"
+                  className="vendor-act-btn"
+                  onClick={() => void load(true)}
+                  disabled={refreshing}
+                >
+                  <RefreshCw size={14} className={refreshing ? 'spin-icon' : ''} /> {t('Refresh')}
+                </button>
+              </div>
+            </div>
+
+            {/* Inventory Search & Filter Toolbar */}
+            <div className="vendor-toolbar">
+              <div className="vendor-toolbar__left">
+                <div className="vendor-search-input">
+                  <Search size={16} />
+                  <input
+                    type="text"
+                    value={inventorySearch}
+                    onChange={(e) => {
+                      setInventorySearch(e.target.value)
+                      setInventoryPage(0)
+                    }}
+                    placeholder={t('Search inventory by product or variant...')}
+                  />
+                  {inventorySearch && (
+                    <button
+                      type="button"
+                      className="vendor-search-clear"
+                      onClick={() => {
+                        setInventorySearch('')
+                        setInventoryPage(0)
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  className="vendor-select"
+                  value={inventoryStockFilter}
+                  onChange={(e) => {
+                    setInventoryStockFilter(e.target.value)
+                    setInventoryPage(0)
+                  }}
+                >
+                  <option value="all">{t('All Stock Levels')}</option>
+                  <option value="in_stock">{t('In Stock (>0)')}</option>
+                  <option value="low_stock">{t('Low Stock (1-5)')}</option>
+                  <option value="out_of_stock">{t('Out of Stock (0)')}</option>
+                </select>
+              </div>
+            </div>
+
+            {inventory.length === 0 ? (
+              <div className="vendor-empty-state">
+                <div className="vendor-empty-state__icon">
+                  <Boxes size={28} />
+                </div>
+                <h3>{t('No stock records yet')}</h3>
+                <p>{t('Stock records appear when a listing with inventory tracking is created.')}</p>
+              </div>
+            ) : filteredInventoryGroups.length === 0 ? (
+              <div className="vendor-empty-state">
+                <div className="vendor-empty-state__icon">
+                  <Boxes size={28} />
+                </div>
+                <h3>{t('No matching inventory records')}</h3>
+                <p>{t('Try clearing your search query or choosing another stock status.')}</p>
+              </div>
+            ) : (
+              <>
+                <div className="vendor-pro-table-wrap">
+                  <table className="vendor-pro-table">
+                    <thead>
+                      <tr>
+                        <th>{t('Product')}</th>
+                        <th>{t('Variants')}</th>
+                        <th>{t('Total quantity')}</th>
+                        <th>{t('Updated')}</th>
+                        <th style={{ textAlign: 'right' }}>{t('Adjust')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedInventoryGroups.map((group) => {
+                        const total = group.rows.reduce((sum, row) => sum + Number(row.quantity), 0)
+                        const updated = group.rows.reduce(
+                          (latest, row) => (row.updated_at > latest ? row.updated_at : latest),
+                          group.rows[0].updated_at
+                        )
+                        const img = productImages[group.productId]
+
+                        return (
+                          <tr key={group.productId}>
+                            <td>
+                              <div className="vendor-product-cell">
+                                <div className="vendor-product-thumb">
+                                  {img ? (
+                                    <img src={img} alt={group.productName} loading="lazy" />
+                                  ) : (
+                                    <Package size={22} />
+                                  )}
+                                </div>
+                                <span className="vendor-product-title">{group.productName}</span>
+                              </div>
+                            </td>
+                            <td>
+                              {group.rows.length === 1 && !group.rows[0].variant_id ? (
+                                <span style={{ color: '#64748b', fontSize: 12 }}>{t('Default')}</span>
+                              ) : (
+                                <div style={{ display: 'grid', gap: 2 }}>
+                                  <strong>{group.rows.length} {t('variants')}</strong>
+                                  <small style={{ color: '#64748b' }}>
+                                    {group.rows.map((row) => row.variant_name ?? t('Default')).join(' · ')}
+                                  </small>
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`vendor-badge ${total > 5 ? 'vendor-badge--instock' : total > 0 ? 'vendor-badge--lowstock' : 'vendor-badge--nostock'}`}>
+                                <Boxes size={12} />
+                                <strong>{total}</strong>
+                              </span>
+                            </td>
+                            <td>
+                              <small style={{ color: '#64748b' }}>
+                                {new Date(updated).toLocaleDateString()}
+                              </small>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                className="vendor-act-btn"
+                                onClick={() => openInventoryEditor(group)}
+                              >
+                                <Pencil size={13} /> {t('Edit stock')}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredInventoryGroups.length > 0 && (
+                  <div className="vendor-pagination">
+                    <div className="vendor-pagination__info">
+                      {t('Showing')}{' '}
+                      <strong>
+                        {inventoryPage * inventoryPageSize + 1}–{Math.min(filteredInventoryGroups.length, (inventoryPage + 1) * inventoryPageSize)}
+                      </strong>{' '}
+                      {t('of')} <strong>{filteredInventoryGroups.length}</strong> {t('items')}
+                    </div>
+
+                    <div className="vendor-pagination__controls">
+                      <select
+                        className="vendor-select"
+                        style={{ height: 32, padding: '0 8px', fontSize: 11 }}
+                        value={inventoryPageSize}
+                        onChange={(e) => {
+                          setInventoryPageSize(Number(e.target.value))
+                          setInventoryPage(0)
+                        }}
+                        aria-label={t('Items per page')}
+                      >
+                        <option value={10}>10 {t('per page')}</option>
+                        <option value={20}>20 {t('per page')}</option>
+                        <option value={50}>50 {t('per page')}</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={inventoryPage === 0}
+                        onClick={() => setInventoryPage((p) => Math.max(0, p - 1))}
+                      >
+                        <ChevronLeft size={14} /> {t('Previous')}
+                      </button>
+
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', padding: '0 4px' }}>
+                        {inventoryPage + 1} / {totalInventoryPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={inventoryPage + 1 >= totalInventoryPages}
+                        onClick={() => setInventoryPage((p) => p + 1)}
+                      >
+                        {t('Next')} <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* TAB 4: ORDERS / FULFILMENT */}
+        {tab === 'orders' && (
+          <VendorOrdersPanel
+            items={orderItems}
+            products={products}
+            onError={(message) => push(message, 'error')}
+          />
+        )}
+
+        {/* TAB 5: CASES & SUPPORT */}
+        {tab === 'cases' && (
+          <section className="vendor-pro-panel">
+            <div className="vendor-pro-panel__header">
+              <div className="vendor-pro-panel__heading">
+                <h2>{t('Support & cases')}</h2>
+                <p>{t('Create a support ticket or respond to customer returns and complaints.')}</p>
+              </div>
+              <button
+                type="button"
+                className="vendor-act-btn"
+                onClick={() => void load(true)}
+                disabled={refreshing}
+              >
+                <RefreshCw size={14} className={refreshing ? 'spin-icon' : ''} /> {t('Refresh')}
+              </button>
+            </div>
+            <VendorSupportDesk sellerId={profile.id} onError={(message) => push(message, 'error')} />
+            <h3 className="vendor-cases-subheading" style={{ marginTop: 24 }}>
+              {t('Customer cases')}
+            </h3>
+            {cases.length === 0 ? (
+              <div className="vendor-empty-state">
+                <div className="vendor-empty-state__icon">
+                  <ClipboardList size={28} />
+                </div>
+                <h3>{t('No customer cases')}</h3>
+                <p>{t('Buyer cases for your items will appear here.')}</p>
+              </div>
+            ) : (
+              <>
+                <div className="case-list">
+                  {paginatedCases.map((item) => (
+                    <CaseResponse
+                      key={item.id}
+                      item={item}
+                      onResponded={async () => {
+                        push(t('Response sent.'), 'success')
+                        await load()
+                      }}
+                      onError={(message) => push(message, 'error')}
+                    />
+                  ))}
+                </div>
+
+                {cases.length > 0 && (
+                  <div className="vendor-pagination">
+                    <div className="vendor-pagination__info">
+                      {t('Showing')}{' '}
+                      <strong>
+                        {casesPage * casesPageSize + 1}–{Math.min(cases.length, (casesPage + 1) * casesPageSize)}
+                      </strong>{' '}
+                      {t('of')} <strong>{cases.length}</strong> {t('cases')}
+                    </div>
+
+                    <div className="vendor-pagination__controls">
+                      <select
+                        className="vendor-select"
+                        style={{ height: 32, padding: '0 8px', fontSize: 11 }}
+                        value={casesPageSize}
+                        onChange={(e) => {
+                          setCasesPageSize(Number(e.target.value))
+                          setCasesPage(0)
+                        }}
+                        aria-label={t('Cases per page')}
+                      >
+                        <option value={5}>5 {t('per page')}</option>
+                        <option value={10}>10 {t('per page')}</option>
+                        <option value={20}>20 {t('per page')}</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={casesPage === 0}
+                        onClick={() => setCasesPage((p) => Math.max(0, p - 1))}
+                      >
+                        <ChevronLeft size={14} /> {t('Previous')}
+                      </button>
+
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', padding: '0 4px' }}>
+                        {casesPage + 1} / {totalCasePages}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="vendor-pagination-btn"
+                        disabled={casesPage + 1 >= totalCasePages}
+                        onClick={() => setCasesPage((p) => p + 1)}
+                      >
+                        {t('Next')} <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* TAB 6: SHOP SETTINGS */}
+        {tab === 'settings' && (
+          <section className="vendor-pro-panel">
+            <div className="vendor-pro-panel__header">
+              <div className="vendor-pro-panel__heading">
+                <h2>{t('Shop settings')}</h2>
+                <p>{t('Update the public details and logo customers see on your shop page.')}</p>
+              </div>
+            </div>
+            <ShopForm
+              profile={profile}
+              mode="settings"
+              onSaved={(saved) => {
+                setProfile(saved)
+                push(t('Shop settings saved.'), 'success')
+              }}
+            />
+          </section>
+        )}
+      </main>
+    </div>
+
+    {/* Daily Stock Modal */}
+    {stockProduct && (
+      <div
+        className="dialog-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !savingStock) setStockProduct(null)
+        }}
+      >
+        <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="daily-stock-title">
+          <div className="account-panel__heading">
+            <div>
+              <h2 id="daily-stock-title">{t("Set today's stock")}</h2>
+              <p>{stockProduct.name}</p>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={t('Close')}
+              onClick={() => setStockProduct(null)}
+              disabled={savingStock}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <label className="form-field">
+            <span>
+              {t("Today's available stock")}{' '}
+              {stockProduct.food_selling_unit
+                ? `(${stockProduct.food_quantity_increment} ${stockProduct.food_selling_unit === 'kg' ? 'g' : stockProduct.food_selling_unit === 'l' ? 'ml' : stockProduct.food_selling_unit} per step)`
+                : ''}
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={stockQuantity}
+              onChange={(event) => setStockQuantity(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>{t('Minimum order quantity (steps)')}</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={stockMinimum}
+              onChange={(event) => setStockMinimum(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>{t('Shop minimum order value (PKR)')}</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={stockMinimumValue}
+              onChange={(event) => setStockMinimumValue(event.target.value)}
+            />
+          </label>
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="button button--outline"
+              onClick={() => setStockProduct(null)}
+              disabled={savingStock}
+            >
+              {t('Cancel')}
+            </button>
+            <button
+              type="button"
+              className="button button--dark"
+              disabled={
+                savingStock ||
+                !Number.isInteger(Number(stockQuantity)) ||
+                Number(stockQuantity) < 0 ||
+                !Number.isInteger(Number(stockMinimum)) ||
+                Number(stockMinimum) < 1 ||
+                !Number.isFinite(Number(stockMinimumValue)) ||
+                Number(stockMinimumValue) < 0
+              }
+              onClick={async () => {
+                setSavingStock(true)
+                try {
+                  await setVendorDailyAvailability({
+                    productId: stockProduct.id,
+                    isDailyItem: true,
+                    availableQuantity: Number(stockQuantity),
+                    minimumQuantity: Number(stockMinimum),
+                    minimumOrderValue: Number(stockMinimumValue),
+                  })
+                  push(t("Today's availability and minimum order rules saved."), 'success')
+                  setStockProduct(null)
+                  await load()
+                } catch (cause) {
+                  push(cause instanceof Error ? cause.message : t('Availability update failed.'), 'error')
+                } finally {
+                  setSavingStock(false)
+                }
+              }}
+            >
+              {savingStock ? t('Saving…') : t('Save availability')}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
+
+    {/* Inventory Adjustment Modal */}
+    {editingInventoryProductId &&
+      (() => {
+        const group = inventoryGroups.find((entry) => entry.productId === editingInventoryProductId)
+        if (!group) return null
+        return (
+          <div
+            className="dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !savingInventoryGroup) setEditingInventoryProductId(null)
+            }}
+          >
+            <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-inventory-edit-title">
+              <div className="account-panel__heading">
+                <div>
+                  <h2 id="vendor-inventory-edit-title">{t('Edit product stock')}</h2>
+                  <p>{group.productName}</p>
+                  <small>{t('Update all variants together. Each variant keeps its own stock record.')}</small>
+                </div>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t('Close')}
+                  disabled={savingInventoryGroup}
+                  onClick={() => setEditingInventoryProductId(null)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <form
+                className="vendor-form"
+                onSubmit={async (event) => {
+                  event.preventDefault()
+                  if (!inventoryEditNote.trim()) {
+                    push(t('Add a reason for this stock adjustment.'), 'error')
+                    return
+                  }
+                  const changes = group.rows.map((row) => ({
+                    row,
+                    value: Number(inventoryEditQuantities[row.id]),
+                  }))
+                  if (changes.some(({ value }) => !Number.isInteger(value) || value < 0)) {
+                    push(t('Every variant quantity must be a whole number of zero or more.'), 'error')
+                    return
+                  }
+                  setSavingInventoryGroup(true)
+                  try {
+                    for (const change of changes) {
+                      await adjustOwnInventory(change.row.id, change.value, inventoryEditNote.trim())
+                    }
+                    setEditingInventoryProductId(null)
+                    setInventoryEditNote('')
+                    push(t('All product variant quantities updated.'), 'success')
+                    await load()
+                  } catch (cause) {
+                    push(
+                      cause instanceof Error
+                        ? cause.message
+                        : t('Inventory could not be updated. Some earlier variants may already have been saved; refresh before retrying.'),
+                      'error'
+                    )
+                  } finally {
+                    setSavingInventoryGroup(false)
+                  }
+                }}
+              >
+                <div className="vendor-form__grid">
+                  {group.rows.map((row) => (
+                    <label className="form-field" key={row.id}>
+                      <span>{row.variant_name ?? t('Default product')}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        required
+                        value={inventoryEditQuantities[row.id] ?? '0'}
+                        onChange={(event) =>
+                          setInventoryEditQuantities((current) => ({
+                            ...current,
+                            [row.id]: event.target.value,
+                          }))
+                        }
+                      />
+                      <small>
+                        {t('Current quantity')}: {row.quantity}
+                      </small>
+                    </label>
+                  ))}
+                  <label className="form-field">
+                    <span>{t('Adjustment reason')}</span>
+                    <input
+                      required
+                      value={inventoryEditNote}
+                      onChange={(event) => setInventoryEditNote(event.target.value)}
+                      placeholder={t('e.g. Stock count / supplier restock')}
+                    />
+                  </label>
+                </div>
+                <div className="dialog-actions">
+                  <button
+                    type="button"
+                    className="button button--outline"
+                    disabled={savingInventoryGroup}
+                    onClick={() => setEditingInventoryProductId(null)}
+                  >
+                    {t('Cancel')}
+                  </button>
+                  <button type="submit" className="button button--dark" disabled={savingInventoryGroup}>
+                    {savingInventoryGroup ? t('Saving…') : t('Save all quantities')}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )
+      })()}
+
+    {/* Add Stock Modal */}
+    {inventoryAddOpen && (
+      <div
+        className="dialog-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !savingProductAction) setInventoryAddOpen(false)
+        }}
+      >
+        <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-add-stock-title">
+          <div className="account-panel__heading">
+            <div>
+              <h2 id="vendor-add-stock-title">{t('Add or update stock')}</h2>
+              <p>{t('Choose one of your own products and set its current stock.')}</p>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setInventoryAddOpen(false)}
+              disabled={savingProductAction}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <label className="form-field">
+            <span>{t('Product')}</span>
+            <select
+              value={inventoryAddProductId}
+              onChange={(event) => setInventoryAddProductId(event.target.value)}
+            >
+              {products.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>{t('Available quantity')}</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={inventoryAddQuantity}
+              onChange={(event) => setInventoryAddQuantity(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>{t('Adjustment note')}</span>
+            <input
+              value={inventoryAddNote}
+              onChange={(event) => setInventoryAddNote(event.target.value)}
+              required
+              minLength={2}
+            />
+          </label>
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="button button--outline"
+              onClick={() => setInventoryAddOpen(false)}
+              disabled={savingProductAction}
+            >
+              {t('Cancel')}
+            </button>
+            <button
+              type="button"
+              className="button button--dark"
+              disabled={
+                savingProductAction ||
+                !inventoryAddProductId ||
+                !Number.isInteger(Number(inventoryAddQuantity)) ||
+                Number(inventoryAddQuantity) < 0 ||
+                inventoryAddNote.trim().length < 2
+              }
+              onClick={async () => {
+                setSavingProductAction(true)
+                try {
+                  await setOwnProductInventory(
+                    inventoryAddProductId,
+                    Number(inventoryAddQuantity),
+                    inventoryAddNote
+                  )
+                  push(t('Inventory updated.'), 'success')
+                  setInventoryAddOpen(false)
+                  await load()
+                } catch (cause) {
+                  push(cause instanceof Error ? cause.message : t('Inventory could not be updated.'), 'error')
+                } finally {
+                  setSavingProductAction(false)
+                }
+              }}
+            >
+              {savingProductAction ? t('Saving…') : t('Save stock')}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
+
+    {/* Visibility Confirmation Modal */}
+    {visibilityTarget && (
+      <div
+        className="dialog-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !savingProductAction) setVisibilityTarget(null)
+        }}
+      >
+        <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-visibility-title">
+          <h2 id="vendor-visibility-title">
+            {visibilityTarget.vendor_hidden ? t('Unhide product?') : t('Hide product?')}
+          </h2>
+          <p>{visibilityTarget.name}</p>
+          <p>{t('This changes storefront visibility only. It does not change moderation approval.')}</p>
+          <div className="dialog-actions">
+            <button
+              className="button button--outline"
+              type="button"
+              onClick={() => setVisibilityTarget(null)}
+              disabled={savingProductAction}
+            >
+              {t('Cancel')}
+            </button>
+            <button
+              className="button button--dark"
+              type="button"
+              disabled={savingProductAction}
+              onClick={async () => {
+                setSavingProductAction(true)
+                try {
+                  await setVendorProductVisibility(visibilityTarget.id, !visibilityTarget.vendor_hidden)
+                  setVisibilityTarget(null)
+                  push(t('Product visibility updated.'), 'success')
+                  await load()
+                } catch (cause) {
+                  push(cause instanceof Error ? cause.message : t('Visibility update failed.'), 'error')
+                } finally {
+                  setSavingProductAction(false)
+                }
+              }}
+            >
+              {t('Confirm')}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
+
+    {/* Deletion Request Modal */}
+    {deletionTarget && (
+      <div
+        className="dialog-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !savingProductAction) setDeletionTarget(null)
+        }}
+      >
+        <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="vendor-delete-request-title">
+          <h2 id="vendor-delete-request-title">{t('Request product deletion')}</h2>
+          <p>{deletionTarget.name}</p>
+          <label className="form-field">
+            <span>{t('Reason for deletion')} *</span>
+            <textarea
+              rows={4}
+              value={deletionReason}
+              onChange={(event) => setDeletionReason(event.target.value)}
+              minLength={3}
+              required
+              placeholder={t('Tell the JTBazar admin why this product should be removed.')}
+            />
+          </label>
+          <p className="form-help">{t('The product will not be deleted until an admin approves this request.')}</p>
+          <div className="dialog-actions">
+            <button
+              className="button button--outline"
+              type="button"
+              onClick={() => setDeletionTarget(null)}
+              disabled={savingProductAction}
+            >
+              {t('Cancel')}
+            </button>
+            <button
+              className="button button--dark"
+              type="button"
+              disabled={savingProductAction || deletionReason.trim().length < 3}
+              onClick={async () => {
+                setSavingProductAction(true)
+                try {
+                  await requestOwnProductDeletion(deletionTarget.id, deletionReason)
+                  push(t('Deletion request sent to admin.'), 'success')
+                  setDeletionTarget(null)
+                  await load()
+                } catch (cause) {
+                  push(cause instanceof Error ? cause.message : t('Deletion request failed.'), 'error')
+                } finally {
+                  setSavingProductAction(false)
+                }
+              }}
+            >
+              {savingProductAction ? t('Submitting…') : t('Submit request')}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
   </section></VendorGate>
 }
 
@@ -890,8 +2896,8 @@ function VendorOrdersPanel({ items, products, onError }: { items: VendorOrderIte
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(12)
   const [fetching, setFetching] = useState(false)
-  const pageSize = 12
   const totalOrders = Number(pageItems[0]?.total_orders ?? 0)
   const totalPages = Math.max(1, Math.ceil(totalOrders / pageSize))
   const orderGroups = useMemo(() => {
@@ -912,7 +2918,7 @@ function VendorOrdersPanel({ items, products, onError }: { items: VendorOrderIte
   useEffect(() => {
     const timer = window.setTimeout(() => { void reloadPage() }, 250)
     return () => window.clearTimeout(timer)
-  }, [search, status, page])
+  }, [search, status, page, pageSize])
 
   useEffect(() => {
     if (!printingOrderId) return
@@ -945,7 +2951,49 @@ function VendorOrdersPanel({ items, products, onError }: { items: VendorOrderIte
       </article>)}
       {printingOrderId === id && <VendorOrderSlip items={orderItems} products={products} />}
     </section>)}</div>}
-    <div className="vendor-api-pagination"><span>{totalOrders ? `${page * pageSize + 1}–${Math.min(totalOrders, (page + 1) * pageSize)} ${t('of')} ${totalOrders} ${t('orders')}` : t('No orders')}</span><div><button type="button" className="button button--outline" disabled={page === 0 || fetching} onClick={() => setPage((value) => Math.max(0, value - 1))}>{t('Previous')}</button><span>{page + 1} / {totalPages}</span><button type="button" className="button button--outline" disabled={page + 1 >= totalPages || fetching} onClick={() => setPage((value) => value + 1)}>{t('Next')}</button></div></div>
+    <div className="vendor-pagination">
+      <div className="vendor-pagination__info">
+        {totalOrders ? `${page * pageSize + 1}–${Math.min(totalOrders, (page + 1) * pageSize)} ${t('of')} ${totalOrders} ${t('orders')}` : t('No orders')}
+      </div>
+      <div className="vendor-pagination__controls">
+        <select
+          className="vendor-select"
+          style={{ height: 32, padding: '0 8px', fontSize: 11 }}
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value))
+            setPage(0)
+          }}
+          aria-label={t('Orders per page')}
+        >
+          <option value={12}>12 {t('per page')}</option>
+          <option value={24}>24 {t('per page')}</option>
+          <option value={48}>48 {t('per page')}</option>
+        </select>
+
+        <button
+          type="button"
+          className="vendor-pagination-btn"
+          disabled={page === 0 || fetching}
+          onClick={() => setPage((value) => Math.max(0, value - 1))}
+        >
+          <ChevronLeft size={14} /> {t('Previous')}
+        </button>
+
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#475569', padding: '0 4px' }}>
+          {page + 1} / {totalPages}
+        </span>
+
+        <button
+          type="button"
+          className="vendor-pagination-btn"
+          disabled={page + 1 >= totalPages || fetching}
+          onClick={() => setPage((value) => value + 1)}
+        >
+          {t('Next')} <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
   </section>
 }
 
@@ -1043,6 +3091,13 @@ function VendorSupportDesk({ sellerId, onError }: { sellerId: string; onError: (
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+  const [ticketPage, setTicketPage] = useState(0)
+  const [ticketPageSize, setTicketPageSize] = useState(5)
+  const totalTicketPages = Math.max(1, Math.ceil(tickets.length / ticketPageSize))
+  const paginatedTickets = useMemo(() => {
+    const start = ticketPage * ticketPageSize
+    return tickets.slice(start, start + ticketPageSize)
+  }, [tickets, ticketPage, ticketPageSize])
   const selectedTicket = tickets.find((ticket) => ticket.id === selectedTicketId) ?? null
   useEffect(() => { let active = true; void listOwnSupportTickets().then((rows) => { if (active) { setTickets(rows); setLoadError(null) } }).catch((cause: unknown) => { if (active) setLoadError(cause instanceof Error ? cause.message : t('Support tickets could not be loaded.')) }); return () => { active = false } }, [refresh, t])
   useEffect(() => {
@@ -1064,7 +3119,82 @@ function VendorSupportDesk({ sellerId, onError }: { sellerId: string; onError: (
   }
   return <div className="vendor-support-desk">
     <form className="vendor-support-form" onSubmit={(event) => void submit(event)}><h3>{t('Contact marketplace support')}</h3><div className="form-field"><label htmlFor="vendor-ticket-subject">{t('Subject')}</label><input id="vendor-ticket-subject" name="subject" required minLength={3} maxLength={180}/></div><div className="form-field"><label htmlFor="vendor-ticket-message">{t('How can we help?')}</label><textarea id="vendor-ticket-message" name="message" required minLength={3} maxLength={4000} rows={4}/></div><button type="submit" className="button button--dark" disabled={saving}>{saving ? t('Sending…') : t('Create support ticket')}</button></form>
-    <div className="vendor-support-list"><h3>{t('Your support tickets')}</h3>{loadError ? <p className="field-error">{loadError}</p> : tickets.length === 0 ? <p>{t('No support tickets yet.')}</p> : tickets.map((ticket) => <article className="vendor-support-ticket" key={ticket.id}><button type="button" className="vendor-support-ticket__toggle" onClick={() => setSelectedTicketId(ticket.id)}><span><strong>{ticket.subject}</strong><small>{new Date(ticket.updated_at).toLocaleString()}</small></span><span className="vendor-support-ticket__meta"><StatusBadge status={ticket.status}/><span><MessageCircle size={15}/>{t('Open chat')}</span></span></button></article>)}</div>
+    <div className="vendor-support-list">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h3 style={{ margin: 0 }}>{t('Your support tickets')}</h3>
+        {tickets.length > 5 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+            <span>{t('Per page:')}</span>
+            <select
+              value={ticketPageSize}
+              onChange={(e) => {
+                setTicketPageSize(Number(e.target.value))
+                setTicketPage(0)
+              }}
+              style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--vendor-border, #e2e8f0)', background: 'var(--vendor-card-bg, #fff)' }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </div>
+        )}
+      </div>
+      {loadError ? (
+        <p className="field-error">{loadError}</p>
+      ) : tickets.length === 0 ? (
+        <p>{t('No support tickets yet.')}</p>
+      ) : (
+        <>
+          {paginatedTickets.map((ticket) => (
+            <article className="vendor-support-ticket" key={ticket.id}>
+              <button type="button" className="vendor-support-ticket__toggle" onClick={() => setSelectedTicketId(ticket.id)}>
+                <span>
+                  <strong>{ticket.subject}</strong>
+                  <small>{new Date(ticket.updated_at).toLocaleString()}</small>
+                </span>
+                <span className="vendor-support-ticket__meta">
+                  <StatusBadge status={ticket.status} />
+                  <span>
+                    <MessageCircle size={15} />
+                    {t('Open chat')}
+                  </span>
+                </span>
+              </button>
+            </article>
+          ))}
+          {tickets.length > ticketPageSize && (
+            <div className="vendor-pagination" style={{ marginTop: '1rem', borderTop: 'none', padding: '0.5rem 0 0 0' }}>
+              <div className="vendor-pagination__info">
+                <span>
+                  {t('Page')} <strong>{ticketPage + 1}</strong> {t('of')} <strong>{totalTicketPages}</strong> ({tickets.length} {t('tickets')})
+                </span>
+              </div>
+              <div className="vendor-pagination__controls">
+                <button
+                  type="button"
+                  className="vendor-pagination-btn"
+                  disabled={ticketPage === 0}
+                  onClick={() => setTicketPage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft size={14} />
+                  {t('Prev')}
+                </button>
+                <button
+                  type="button"
+                  className="vendor-pagination-btn"
+                  disabled={ticketPage >= totalTicketPages - 1}
+                  onClick={() => setTicketPage((p) => Math.min(totalTicketPages - 1, p + 1))}
+                >
+                  {t('Next')}
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
     {selectedTicket && <div className="vendor-support-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedTicketId(null) }}><section className="vendor-support-modal" role="dialog" aria-modal="true" aria-labelledby="vendor-support-modal-title"><header className="vendor-support-modal__header"><div className="vendor-support-modal__person"><span className="vendor-support-modal__avatar">J</span><div><small>{t('JTBazar Support')}</small><h3 id="vendor-support-modal-title">{selectedTicket.subject}</h3><p>{t('Support conversation')}</p></div></div><button type="button" className="vendor-support-modal__close" aria-label={t('Close chat')} onClick={() => setSelectedTicketId(null)}><X size={19}/></button></header><div className="vendor-support-modal__meta"><span>{t('Ticket status')}</span><StatusBadge status={selectedTicket.status}/><span>{new Date(selectedTicket.created_at).toLocaleString()}</span></div><VendorSupportConversation ticket={selectedTicket}/></section></div>}
   </div>
 }

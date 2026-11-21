@@ -237,6 +237,26 @@ export async function listOwnProducts(): Promise<VendorProduct[]> {
   }) as VendorProduct[]
 }
 
+export async function listOwnProductsPrimaryImages(productIds: string[]): Promise<Record<string, string>> {
+  if (!productIds.length) return {}
+  const client = getSupabase()
+  const { data, error } = await client.from('product_images')
+    .select('product_id, image_url, storage_path, sort_order')
+    .in('product_id', productIds)
+    .order('sort_order', { ascending: true })
+  if (error || !data) return {}
+  const map: Record<string, string> = {}
+  for (const image of data) {
+    if (!map[image.product_id]) {
+      const url = image.image_url || (image.storage_path
+        ? client.storage.from('product-images').getPublicUrl(image.storage_path).data.publicUrl
+        : '')
+      if (url) map[image.product_id] = url
+    }
+  }
+  return map
+}
+
 export async function listOwnProductImageUrls(productId: string): Promise<string[]> {
   const client = getSupabase()
   const { data, error } = await client.from('product_images')
