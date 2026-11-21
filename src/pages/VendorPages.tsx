@@ -209,6 +209,7 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
     const completeAddress = String(data.get('complete_address') ?? '').trim()
     const contactEmail = String(data.get('contact_email') ?? '').trim()
     const phone = String(data.get('phone') ?? '').trim()
+    const businessType = String(data.get('business_type') ?? '').trim()
     const ownerFullName = String(data.get('owner_full_name') ?? '').trim()
     const cnicNumber = String(data.get('cnic_number') ?? '').replace(/\D/g, '')
     const shopLocationText = String(data.get('shop_location_text') ?? '').trim()
@@ -227,7 +228,8 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
       return
     }
     if (!isValidPakistaniMobile(phone)) { push(t('Enter exactly 03001234567 or +923001234567.'), 'error'); return }
-    if (!vendorType) { push(t('Select your vendor type.'), 'error'); return }
+    if (!vendorType) { push(t('Select your legal business structure.'), 'error'); return }
+    if (!['individual_seller','retail_store','restaurant','grocery_store','bakery','cafe'].includes(businessType)) { push(t('Select what type of business you operate.'), 'error'); return }
     if (ownerFullName.length < 3) { push(t('Enter the owner’s full legal name.'), 'error'); return }
     if (!/^\d{13}$/.test(cnicNumber)) { push(t('Enter a valid 13-digit CNIC number without dashes.'), 'error'); return }
     if ((!profile?.cnic_front_path && !cnicFront) || (!profile?.cnic_back_path && !cnicBack)) { push(t('Upload both front and back CNIC images.'), 'error'); return }
@@ -248,7 +250,7 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
         if (verificationDocument) uploadedDocument = await uploadVendorDocument(verificationDocument)
         if (cnicFront) uploadedCnicFront = await uploadVendorCnicImage(cnicFront, 'cnic-front')
         if (cnicBack) uploadedCnicBack = await uploadVendorCnicImage(cnicBack, 'cnic-back')
-        const input = { shop_name: shopName, slug, description, current_address: currentAddress, complete_address: completeAddress, contact_email: contactEmail, phone: normalizePakistaniMobile(phone), vendor_type: vendorType, owner_full_name: ownerFullName, cnic_number: cnicNumber, cnic_front_path: uploadedCnicFront ?? profile?.cnic_front_path ?? null, cnic_back_path: uploadedCnicBack ?? profile?.cnic_back_path ?? null, shop_location_text: shopLocationText, shop_lat: latitude, shop_lng: longitude, ...(uploadedImage ? { shop_image_url: uploadedImage.url } : {}), ...(uploadedDocument ? { document_path: uploadedDocument } : {}), ...(mode === 'settings' ? { shop_lat: latitude, shop_lng: longitude, shop_location_label: locationLabel, show_shop_on_map: showLocation, shop_hours: shopHours, shop_is_open: shopIsOpen } : {}) }
+        const input = { shop_name: shopName, slug, description, current_address: currentAddress, complete_address: completeAddress, contact_email: contactEmail, phone: normalizePakistaniMobile(phone), vendor_type: vendorType, business_type: businessType, owner_full_name: ownerFullName, cnic_number: cnicNumber, cnic_front_path: uploadedCnicFront ?? profile?.cnic_front_path ?? null, cnic_back_path: uploadedCnicBack ?? profile?.cnic_back_path ?? null, shop_location_text: shopLocationText, shop_lat: latitude, shop_lng: longitude, ...(uploadedImage ? { shop_image_url: uploadedImage.url } : {}), ...(uploadedDocument ? { document_path: uploadedDocument } : {}), ...(mode === 'settings' ? { shop_lat: latitude, shop_lng: longitude, shop_location_label: locationLabel, show_shop_on_map: showLocation, shop_hours: shopHours, shop_is_open: shopIsOpen } : {}) }
         const saved = profile ? await updateOwnShop(input) : await applyAsSeller(input)
         committed = true
         if (uploadedImage && profile?.shop_image_url?.includes('/shop-images/')) {
@@ -291,7 +293,8 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
     <div className="form-field"><label htmlFor="shop_name">{t('Shop name')} <span>*</span></label><input id="shop_name" name="shop_name" required maxLength={160} defaultValue={profile?.shop_name ?? ''} placeholder="e.g. Acme Traders" /></div>
     <div className="form-field"><label htmlFor="slug">{t('Shop URL slug')} <span>*</span></label><input id="slug" name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={profile?.slug ?? ''} placeholder="acme-traders" /></div>
     <div className="form-field"><label htmlFor="contact_email">{t('Account email')} <span>*</span></label><input id="contact_email" name="contact_email" type="email" required value={user?.email ?? ''} readOnly aria-readonly="true" /><p className="form-help">{t('Seller applications must use the same verified email address as your signed-in JTBazar customer account. To use another email, sign out and create or sign in to that account first.')}</p></div>
-    <div className="form-field"><label htmlFor="vendor-type">{t('Business type')} <span>*</span></label><select id="vendor-type" name="vendor_type" value={vendorType} onChange={(event) => setVendorType(event.target.value)} required><option value="individual_seller">{t('Individual seller')}</option><option value="registered_business">{t('Registered business')}</option><option value="sole_proprietor">{t('Sole proprietor')}</option><option value="partnership">{t('Partnership')}</option><option value="company">{t('Company')}</option></select></div>
+    <div className="form-field"><label htmlFor="business-type">{t('What type of business do you operate?')} <span>*</span></label><select id="business-type" name="business_type" required defaultValue={profile?.business_type ?? 'individual_seller'} disabled={mode === 'settings'}><option value="individual_seller">{t('Individual seller')}</option><option value="retail_store">{t('Retail store')}</option><option value="restaurant">{t('Restaurant / Food')}</option><option value="grocery_store">{t('Grocery store')}</option><option value="bakery">{t('Bakery')}</option><option value="cafe">{t('Cafe')}</option></select>{mode === 'settings' && <p className="form-help">{t('Contact marketplace support if your business category needs to change.')}</p>}</div>
+    <div className="form-field"><label htmlFor="vendor-type">{t('Legal business structure')} <span>*</span></label><select id="vendor-type" name="vendor_type" value={vendorType} onChange={(event) => setVendorType(event.target.value)} required><option value="individual_seller">{t('Individual seller')}</option><option value="registered_business">{t('Registered business')}</option><option value="sole_proprietor">{t('Sole proprietor')}</option><option value="partnership">{t('Partnership')}</option><option value="company">{t('Company')}</option></select></div>
     <div className="form-field"><label htmlFor="owner_full_name">{t("Owner's full legal name")} <span>*</span></label><input id="owner_full_name" name="owner_full_name" required minLength={3} maxLength={160} defaultValue={profile?.owner_full_name ?? ''} /></div>
     <div className="form-field"><label htmlFor="cnic_number">{t('CNIC number')} <span>*</span></label><input id="cnic_number" name="cnic_number" required inputMode="numeric" maxLength={13} pattern="[0-9]{13}" placeholder="13 digits without dashes" defaultValue={profile?.cnic_number ?? ''} /></div>
     <div className="form-field"><label htmlFor="phone">{t('Business phone')} <span>*</span></label><input id="phone" name="phone" type="tel" required defaultValue={profile?.phone ?? ''} maxLength={13} pattern="(03[0-9]{9}|\+923[0-9]{9})" placeholder="03001234567 or +923001234567" /></div>
@@ -732,7 +735,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
       if (productId) {
         for (const imageFile of imageFiles) await uploadOwnProductImage(productId, imageFile, input.name)
       }
-      await onSaved(t(wasEditing ? 'Product changes submitted for moderation.' : 'Listing submitted for moderation.'))
+      await onSaved(t(wasEditing ? 'Product changes saved. Listings from trusted vendors may publish immediately; other listings remain subject to admin review.' : 'Listing saved. Listings from trusted vendors may publish immediately; other listings remain subject to admin review.'))
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : t('The listing could not be saved.')
       setError(createdProductId && !product
