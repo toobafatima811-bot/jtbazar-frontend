@@ -440,6 +440,13 @@ export async function uploadOwnProductImage(productId: string, file: File, altTe
   }
 }
 
+export async function finalizeVendorProductSubmission(productId: string): Promise<VendorProduct> {
+  const { data, error } = await getSupabase().rpc('vendor_finalize_product_submission', { p_product_id: productId })
+  assertError(error)
+  if (!data) throw new Error('The product submission could not be finalized.')
+  return data as VendorProduct
+}
+
 export async function updateVendorProduct(productId: string, input: {
   category_id: string | null
   name: string
