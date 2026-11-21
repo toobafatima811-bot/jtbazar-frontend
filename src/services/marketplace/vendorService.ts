@@ -30,7 +30,7 @@ export async function sendOwnSupportMessage(ticketId: string, message: string): 
   return data
 }
 
-const SELLER_COLUMNS = 'id, user_id, shop_name, slug, description, current_address, complete_address, contact_email, phone, document_path, shop_image_url, shop_lat, shop_lng, shop_location_label, show_shop_on_map, vendor_type, owner_full_name, cnic_number, cnic_front_path, cnic_back_path, shop_location_text, shop_hours, shop_is_open, status, rejection_reason, reviewed_by, reviewed_at, vendor_locked, vendor_locked_at, vendor_locked_by, vendor_lock_reason, created_at, updated_at'
+const SELLER_COLUMNS = 'id, user_id, shop_name, slug, description, current_address, complete_address, contact_email, phone, document_path, shop_image_url, shop_lat, shop_lng, shop_location_label, show_shop_on_map, vendor_type, business_type, allow_product_publishing_without_review, owner_full_name, cnic_number, cnic_front_path, cnic_back_path, shop_location_text, shop_hours, shop_is_open, status, rejection_reason, reviewed_by, reviewed_at, vendor_locked, vendor_locked_at, vendor_locked_by, vendor_lock_reason, created_at, updated_at'
 const CASE_COLUMNS = 'id, order_id, order_item_id, buyer_id, seller_id, case_type, status, reason, evidence_path, seller_response, admin_decision, decided_by, decided_at, created_at, updated_at'
 
 export interface VendorShopInput {
@@ -47,6 +47,7 @@ export interface VendorShopInput {
   shop_location_label?: string
   show_shop_on_map?: boolean
   vendor_type?: string
+  business_type?: 'individual_seller' | 'retail_store' | 'restaurant' | 'grocery_store' | 'bakery' | 'cafe'
   owner_full_name?: string
   cnic_number?: string
   cnic_front_path?: string | null
@@ -166,6 +167,7 @@ export async function applyAsSeller(input: VendorShopInput & { current_address: 
     ...(input.show_shop_on_map !== undefined ? { show_shop_on_map: input.show_shop_on_map } : {}),
     document_path: input.document_path ?? null,
     vendor_type: input.vendor_type,
+    business_type: input.business_type ?? 'individual_seller',
     owner_full_name: input.owner_full_name,
     cnic_number: input.cnic_number,
     cnic_front_path: input.cnic_front_path,
@@ -200,6 +202,7 @@ export async function updateOwnShop(input: VendorShopInput & { document_path?: s
     ...(input.show_shop_on_map !== undefined ? { show_shop_on_map: input.show_shop_on_map } : {}),
     ...(input.document_path ? { document_path: input.document_path } : {}),
     ...(input.vendor_type !== undefined ? { vendor_type: input.vendor_type } : {}),
+    ...(input.business_type !== undefined ? { business_type: input.business_type } : {}),
     ...(input.owner_full_name !== undefined ? { owner_full_name: input.owner_full_name } : {}),
     ...(input.cnic_number !== undefined ? { cnic_number: input.cnic_number } : {}),
     ...(input.cnic_front_path !== undefined ? { cnic_front_path: input.cnic_front_path } : {}),
@@ -435,6 +438,13 @@ export async function uploadOwnProductImage(productId: string, file: File, altTe
       .eq('product_id', productId)
     if (promoteError) throw new Error(promoteError.message)
   }
+}
+
+export async function finalizeVendorProductSubmission(productId: string): Promise<VendorProduct> {
+  const { data, error } = await getSupabase().rpc('vendor_finalize_product_submission', { p_product_id: productId })
+  assertError(error)
+  if (!data) throw new Error('The product submission could not be finalized.')
+  return data as VendorProduct
 }
 
 export async function updateVendorProduct(productId: string, input: {
