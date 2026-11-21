@@ -35,7 +35,7 @@ When a record reaches its deletion date and no legal hold applies:
 3. Keep only the minimum audit evidence needed to show that access/deletion was handled; never keep a copy of the CNIC in the audit log.
 4. Record the deletion date and responsible administrator in an approved operational record.
 
-**Important implementation note:** The policy and dashboard access logging are being added in code. A scheduled automatic purge is not configured by this change; JTBazar must run a documented retention review and deletion process until an automated cleanup job is separately tested and enabled. Do not tell vendors that deletion is automatically scheduled until that automation is live.
+**Automation:** A daily 02:00 UTC Supabase Cron job invokes the private retention-cleanup Edge Function. Rejected applications are queued for deletion 90 days after the final rejection decision. When a seller profile is deleted (account closure), its CNIC images are queued for deletion 90 days later. The job removes the image objects from private Storage and clears the CNIC number and paths from any remaining seller profile. Failed deletions are retried daily and remain visible in the private retention queue. The schedule becomes active only after the matching database migration is applied.
 
 ## Vendor notice
 
