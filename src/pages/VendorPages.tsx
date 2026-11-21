@@ -31,6 +31,7 @@ import {
   respondToCase,
   updateOwnShop,
   updateVendorProduct,
+  finalizeVendorProductSubmission,
   setVendorDailyAvailability,
   setVendorFoodProductDetails,
   setVendorProductVisibility,
@@ -734,6 +735,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
       })
       if (productId) {
         for (const imageFile of imageFiles) await uploadOwnProductImage(productId, imageFile, input.name)
+        await finalizeVendorProductSubmission(productId)
       }
       await onSaved(t(wasEditing ? 'Product changes saved. Listings from trusted vendors may publish immediately; other listings remain subject to admin review.' : 'Listing saved. Listings from trusted vendors may publish immediately; other listings remain subject to admin review.'))
     } catch (cause) {
