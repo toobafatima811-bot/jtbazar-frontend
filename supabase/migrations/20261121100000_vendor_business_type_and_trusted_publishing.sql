@@ -104,7 +104,7 @@ begin
   end if;
   return product_id;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.vendor_update_product(p_product_id uuid, p_category_id uuid, p_name text, p_slug text, p_sku text, p_short_description text, p_description text, p_price numeric, p_supplier_cost numeric, p_fulfillment_expense numeric, p_minimum_profit numeric, p_discount_percent numeric DEFAULT 0, p_weight_grams integer DEFAULT NULL::integer, p_specifications jsonb DEFAULT '[]'::jsonb, p_dimensions jsonb DEFAULT '{}'::jsonb, p_seo_title text DEFAULT NULL::text, p_seo_description text DEFAULT NULL::text)
  RETURNS products
@@ -154,7 +154,7 @@ begin
   if not found then raise exception using errcode='42501', message='Product access was denied.'; end if;
   return result_row;
 end;
-$function$
+$function$;
 
 
 -- Publish trusted-vendor listings only after the complete editor workflow (variants, food details and images) succeeds.
