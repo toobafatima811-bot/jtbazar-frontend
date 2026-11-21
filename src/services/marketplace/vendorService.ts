@@ -47,6 +47,7 @@ export interface VendorShopInput {
   shop_location_label?: string
   show_shop_on_map?: boolean
   vendor_type?: string
+  business_type?: 'individual_seller' | 'retail_store' | 'restaurant' | 'grocery_store' | 'bakery' | 'cafe'
   owner_full_name?: string
   cnic_number?: string
   cnic_front_path?: string | null
@@ -166,6 +167,7 @@ export async function applyAsSeller(input: VendorShopInput & { current_address: 
     ...(input.show_shop_on_map !== undefined ? { show_shop_on_map: input.show_shop_on_map } : {}),
     document_path: input.document_path ?? null,
     vendor_type: input.vendor_type,
+    business_type: input.business_type ?? 'individual_seller',
     owner_full_name: input.owner_full_name,
     cnic_number: input.cnic_number,
     cnic_front_path: input.cnic_front_path,
@@ -200,6 +202,7 @@ export async function updateOwnShop(input: VendorShopInput & { document_path?: s
     ...(input.show_shop_on_map !== undefined ? { show_shop_on_map: input.show_shop_on_map } : {}),
     ...(input.document_path ? { document_path: input.document_path } : {}),
     ...(input.vendor_type !== undefined ? { vendor_type: input.vendor_type } : {}),
+    ...(input.business_type !== undefined ? { business_type: input.business_type } : {}),
     ...(input.owner_full_name !== undefined ? { owner_full_name: input.owner_full_name } : {}),
     ...(input.cnic_number !== undefined ? { cnic_number: input.cnic_number } : {}),
     ...(input.cnic_front_path !== undefined ? { cnic_front_path: input.cnic_front_path } : {}),
