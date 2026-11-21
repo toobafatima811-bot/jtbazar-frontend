@@ -130,6 +130,7 @@ export interface Database {
       admin_list_product_deletion_requests: { Args: Record<string, never>; Returns: { id: string; product_id: string; product_name: string; product_image_url: string | null; seller_id: string; shop_name: string; reason: string; status: 'pending' | 'approved' | 'rejected'; admin_note: string | null; created_at: string }[] }
       admin_delete_product: { Args: { p_product_id: string }; Returns: undefined }
       admin_review_product_deletion: { Args: { p_request_id: string; p_approve: boolean; p_admin_note?: string | null }; Returns: Json }
+      vendor_finalize_product_submission: { Args: { p_product_id: string }; Returns: ProductRow }
       vendor_update_product: { Args: { p_product_id: string; p_category_id: string | null; p_name: string; p_slug: string; p_sku: string | null; p_short_description: string; p_description: string; p_price: number; p_supplier_cost: number | null; p_fulfillment_expense: number; p_minimum_profit: number; p_discount_percent?: number; p_weight_grams?: number | null; p_specifications?: Json; p_dimensions?: Json; p_seo_title?: string | null; p_seo_description?: string | null }; Returns: ProductRow }
       vendor_order_items: { Args: Record<string, never>; Returns: VendorOrderItemRow[] }
       vendor_order_items_page: { Args: { p_limit?: number; p_offset?: number; p_search?: string | null; p_status?: string | null }; Returns: VendorOrderItemRow[] }
