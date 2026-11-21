@@ -93,8 +93,7 @@ begin
     coalesce(p_description,''),v_customer_price,p_price,v_commission_percent,v_commission_amount,
     p_supplier_cost,coalesce(p_fulfillment_expense,0),coalesce(p_minimum_profit,0),now(),
     coalesce(p_track_inventory,true),
-    CASE WHEN coalesce(seller.allow_product_publishing_without_review,false) THEN 'published'::public.publication_status ELSE 'draft'::public.publication_status END,
-    CASE WHEN coalesce(seller.allow_product_publishing_without_review,false) THEN 'approved' ELSE 'pending_review' END,
+    'draft','pending_review',
     coalesce(p_discount_percent,0),
     p_weight_grams,coalesce(p_specifications,'[]'::jsonb),coalesce(p_dimensions,'{}'::jsonb),
     nullif(btrim(p_seo_title),''),nullif(btrim(p_seo_description),'')
@@ -118,7 +117,6 @@ declare
   v_commission_percent numeric(6,2) := 0;
   v_commission_amount numeric(12,2) := 0;
   v_customer_price numeric(12,2);
-  v_auto_publish boolean := false;
 begin
   if (auth.jwt()->>'role') is distinct from 'service_role' and (auth.jwt()->>'aal') is distinct from 'aal2'
      and (private.has_role('admin'::public.app_role) or private.has_verified_totp_factor()) then
@@ -131,10 +129,6 @@ begin
     or jsonb_typeof(coalesce(p_dimensions,'{}'::jsonb))<>'object' then
     raise exception using errcode='22023', message='Product fields, base price, discount, weight or profit values are invalid.';
   end if;
-  select coalesce(sp.allow_product_publishing_without_review,false) into v_auto_publish
-  from public.seller_profiles sp
-  where sp.id = (select p.seller_id from public.products p where p.id=p_product_id)
-    and sp.user_id=(select auth.uid()) and sp.status='approved';
   select coalesce((s.category_rates->>p_category_id::text)::numeric,s.default_percent,0)
     into v_commission_percent from public.commission_settings s where s.singleton=true;
   v_commission_percent:=coalesce(v_commission_percent,0);
@@ -149,9 +143,11 @@ begin
     cost_updated_at=now(),discount_percent=coalesce(p_discount_percent,0),weight_grams=p_weight_grams,
     specifications=coalesce(p_specifications,'[]'::jsonb),dimensions=coalesce(p_dimensions,'{}'::jsonb),
     seo_title=nullif(btrim(p_seo_title),''),seo_description=nullif(btrim(p_seo_description),''),
-    moderation_status=CASE WHEN v_auto_publish THEN 'approved' ELSE 'pending_review' END,
-    publication_status=CASE WHEN v_auto_publish THEN 'published'::public.publication_status ELSE 'draft'::public.publication_status END,
-    moderation_reason=null,moderated_by=null,moderated_at=null,updated_at=now()
+    moderation_status=CASE WHEN p.moderation_status IN ('hidden','rejected','archived') THEN p.moderation_status ELSE 'pending_review' END,
+    publication_status='draft'::public.publication_status,
+    moderation_reason=CASE WHEN p.moderation_status IN ('hidden','rejected','archived') THEN p.moderation_reason ELSE null END,
+    moderated_by=CASE WHEN p.moderation_status IN ('hidden','rejected','archived') THEN p.moderated_by ELSE null END,
+    moderated_at=CASE WHEN p.moderation_status IN ('hidden','rejected','archived') THEN p.moderated_at ELSE null END,updated_at=now()
   where p.id=p_product_id and p.seller_id in (
     select s.id from public.seller_profiles s where s.user_id=(select auth.uid()) and s.status='approved'
   ) returning p.* into result_row;
@@ -160,3 +156,65 @@ begin
 end;
 $function$
 
+
+-- Publish trusted-vendor listings only after the complete editor workflow (variants, food details and images) succeeds.
+-- Hidden, rejected and archived products remain blocked and always require an administrator decision.
+CREATE OR REPLACE FUNCTION public.vendor_finalize_product_submission(p_product_id uuid)
+RETURNS public.products
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  result_row public.products;
+  trusted_vendor boolean := false;
+BEGIN
+  IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role'
+     AND (auth.jwt() ->> 'aal') IS DISTINCT FROM 'aal2'
+     AND (private.has_role('admin'::public.app_role) OR private.has_verified_totp_factor()) THEN
+    RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='JTBazar authenticator verification is required.';
+  END IF;
+
+  SELECT coalesce(sp.allow_product_publishing_without_review,false)
+    INTO trusted_vendor
+  FROM public.seller_profiles sp
+  JOIN public.products p ON p.seller_id=sp.id
+  WHERE p.id=p_product_id
+    AND sp.user_id=(SELECT auth.uid())
+    AND sp.status='approved'
+    AND coalesce(sp.vendor_locked,false)=false;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='Approved vendor product access was denied.';
+  END IF;
+
+  IF trusted_vendor THEN
+    UPDATE public.products
+    SET moderation_status='approved',
+        publication_status='published'::public.publication_status,
+        moderation_reason=NULL,
+        moderated_by=NULL,
+        moderated_at=NULL,
+        updated_at=now()
+    WHERE id=p_product_id
+      AND moderation_status='pending_review'
+    RETURNING * INTO result_row;
+  ELSE
+    SELECT * INTO result_row
+    FROM public.products
+    WHERE id=p_product_id
+      AND seller_id IN (SELECT id FROM public.seller_profiles WHERE user_id=(SELECT auth.uid()) AND status='approved');
+  END IF;
+
+  IF result_row.id IS NULL THEN
+    SELECT * INTO result_row FROM public.products WHERE id=p_product_id;
+  END IF;
+  IF result_row.id IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='Product was not found.';
+  END IF;
+  RETURN result_row;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.vendor_finalize_product_submission(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.vendor_finalize_product_submission(uuid) TO authenticated;
