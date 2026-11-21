@@ -1,0 +1,7 @@
+project_id = "xrrhbnnzjqkqnqdvayjw"
+
+[functions.vendor-document-access]
+verify_jwt = true
+
+[functions.vendor-cnic-retention-cleanup]
+verify_jwt = false
