@@ -1859,3 +1859,155 @@
     justify-content: center;
   }
 }
+
+
+/* Follow-up polish: reduce onboarding clutter in saved shop settings and make long listing forms easier to scan. */
+.vendor-dashboard .vendor-form--settings .vendor-business-info-button {
+  display: none;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy {
+  padding: 11px 14px;
+  border-color: #e5eae1;
+  background: #f8faf6;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: #415344;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy summary::-webkit-details-marker {
+  display: none;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy summary::after {
+  content: "+";
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid #dce5d8;
+  border-radius: 50%;
+  background: #fff;
+  color: #426247;
+  font-size: 16px;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy[open] summary {
+  margin-bottom: 10px;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy[open] summary::after {
+  content: "−";
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-form__privacy p {
+  margin: 8px 0;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-hours-row {
+  grid-template-columns: minmax(100px, .8fr) minmax(85px, .75fr) minmax(130px, 1fr) minmax(130px, 1fr) !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+  border-color: #e8ede5 !important;
+  border-radius: 11px !important;
+  background: #fff;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-hours-row strong {
+  color: #3b4d3d;
+  font-size: 12px;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-hours-row label {
+  color: #62705f;
+  font-size: 11px;
+}
+
+.vendor-dashboard .vendor-form--settings .vendor-hours-row input[type="time"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #dfe6dc;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.vendor-dashboard .vendor-form--editor > .vendor-product-section-heading {
+  grid-column: 1 / -1;
+  margin: 5px 0 -3px;
+  padding: 13px 0 0;
+  border-top: 1px solid #e9ede6;
+  color: #36513b;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+  line-height: 1.35;
+}
+
+.vendor-dashboard .vendor-form--editor > .vendor-product-section-heading:first-of-type {
+  margin-top: -2px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(180px, .72fr) minmax(0, 1.28fr);
+  grid-template-areas:
+    "label label"
+    "input preview"
+    "help preview";
+  align-items: start;
+  column-gap: 18px;
+  row-gap: 8px;
+  padding: 15px;
+  border: 1px solid #e6ebe3;
+  border-radius: 13px;
+  background: #f9fbf7;
+}
+
+.vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) > label {
+  grid-area: label;
+  margin: 0;
+}
+
+.vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) > input {
+  grid-area: input;
+}
+
+.vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) > .form-help {
+  grid-area: help;
+}
+
+.vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) > .vendor-commission-preview {
+  grid-area: preview;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 680px) {
+  .vendor-dashboard .vendor-form--settings .vendor-hours-row {
+    grid-template-columns: minmax(90px, 1fr) minmax(120px, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .vendor-dashboard .vendor-form--editor > .form-field:has(> .vendor-commission-preview) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "label" "input" "help" "preview";
+    gap: 9px;
+    padding: 13px;
+  }
+}
