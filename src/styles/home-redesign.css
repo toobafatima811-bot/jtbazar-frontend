@@ -1276,3 +1276,185 @@
     justify-content: center;
   }
 }
+
+
+/* Follow-up: cover the order workflow, narrow navigation and compact-phone edge cases. */
+.vendor-dashboard .vendor-order-filters,
+.vendor-dashboard .vendor-pagination,
+.vendor-dashboard .vendor-pagination__controls,
+.vendor-dashboard .vendor-order-group__head,
+.vendor-dashboard .vendor-order-card__head {
+  min-width: 0;
+}
+
+.vendor-dashboard .vendor-order-search,
+.vendor-dashboard .vendor-order-filters > label {
+  min-width: 0;
+}
+
+.vendor-dashboard .vendor-order-search input,
+.vendor-dashboard .vendor-order-filters select,
+.vendor-dashboard .vendor-pagination select {
+  max-width: 100%;
+}
+
+.vendor-dashboard .vendor-order-card__head > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.vendor-dashboard .vendor-order-card__head .order-status,
+.vendor-dashboard .vendor-order-card__head > span {
+  flex: 0 0 auto;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.vendor-dashboard .vendor-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vendor-dashboard .vendor-pagination__controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vendor-dashboard .vendor-pagination__controls > * {
+  max-width: 100%;
+}
+
+@media (max-width: 820px) {
+  .vendor-dashboard-layout {
+    gap: 12px;
+  }
+
+  .vendor-dashboard .vendor-sidebar .vendor-tabs {
+    min-width: 0;
+    padding: 2px 2px 7px;
+    scrollbar-width: thin;
+  }
+
+  .vendor-dashboard .vendor-sidebar .vendor-tabs button {
+    max-width: min(76vw, 260px);
+  }
+
+  .vendor-dashboard .vendor-sidebar .vendor-tabs button .vendor-tab__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 700px) {
+  .vendor-dashboard .vendor-order-filters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .vendor-dashboard .vendor-order-filters > label,
+  .vendor-dashboard .vendor-order-search {
+    width: 100%;
+  }
+
+  .vendor-dashboard .vendor-order-filters input,
+  .vendor-dashboard .vendor-order-filters select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .vendor-dashboard .vendor-order-group__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .vendor-dashboard .vendor-order-group__head > div:first-child,
+  .vendor-dashboard .vendor-order-group__head > div:first-child small {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .vendor-dashboard .vendor-order-group__actions {
+    justify-content: flex-start;
+  }
+
+  .vendor-dashboard .vendor-order-group__actions .button {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .vendor-dashboard .vendor-order-card__head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .vendor-dashboard .vendor-order-card__head > div {
+    flex: 1 1 180px;
+  }
+
+  .vendor-dashboard .vendor-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vendor-dashboard .vendor-pagination__controls {
+    justify-content: space-between;
+  }
+
+  .vendor-dashboard .vendor-form,
+  .vendor-dashboard .vendor-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vendor-dashboard .vendor-form > *,
+  .vendor-dashboard .vendor-form__grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .vendor-dashboard .vendor-order-card {
+    padding: 12px;
+  }
+
+  .vendor-dashboard .vendor-order-card__head {
+    gap: 9px;
+  }
+
+  .vendor-dashboard .vendor-order-card__head img {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .vendor-dashboard .vendor-order-group__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vendor-dashboard .vendor-order-group__actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .vendor-dashboard .vendor-pagination__controls {
+    justify-content: flex-start;
+  }
+
+  .vendor-dashboard .vendor-pagination__controls button {
+    flex: 1 1 auto;
+  }
+
+  .vendor-dashboard .vendor-error {
+    align-items: flex-start;
+    overflow-wrap: anywhere;
+  }
+}
