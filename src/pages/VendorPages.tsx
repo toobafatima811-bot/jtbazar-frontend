@@ -2863,6 +2863,12 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
     </section>}
     <h3 className="vendor-product-section-heading">{t('Stock and seller costs')}</h3>
     <div className="form-field"><label htmlFor="product-discount">{t('Discount (%)')}</label><input id="product-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)}/><small className="form-help">{t('Discount is calculated from the customer price after commission. Your base price remains unchanged.')}</small>
+</div>
+    <div className="form-field"><label htmlFor="product-weight">{t('Shipping weight (grams)')}</label><input id="product-weight" name="weight_grams" type="number" min="0" step="1" defaultValue={product?.weight_grams ?? ''}/></div>
+    <div className="form-field"><label htmlFor="product-supplier-cost">{t('Supplier cost')} <span>{t('private')}</span></label><input id="product-supplier-cost" name="supplier_cost" type="number" min="0" step="0.01" value={supplierCostValue} onChange={(event) => setSupplierCostValue(event.target.value)} /></div>
+    <div className="form-field"><label htmlFor="product-fulfilment">{t('Fulfilment expense')}</label><input id="product-fulfilment" name="fulfillment_expense" type="number" min="0" step="0.01" value={fulfillmentExpenseValue} onChange={(event) => setFulfillmentExpenseValue(event.target.value)} /></div>
+    <div className="form-field"><label htmlFor="product-profit">{t('Minimum profit')}</label><input id="product-profit" name="minimum_profit" type="number" min="0" step="0.01" value={minimumProfitValue} onChange={(event) => setMinimumProfitValue(event.target.value)} /></div>
+    <section className="form-field form-field--wide">
       <div className="vendor-commission-preview vendor-discount-preview" aria-live="polite">
         <div className="vendor-commission-preview__heading"><strong>{t('After-discount price calculation')}</strong><span>{previewDiscountPercent}% {t('discount')}</span></div>
         <div><span>{t('Customer price before discount')}</span><strong>{formatPKR(previewCustomerPrice)}</strong></div>
@@ -2871,11 +2877,8 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
         <div><span>{t('Supplier cost')} + {t('Fulfilment expense')}</span><strong>{formatPKR(previewSupplierCost + previewFulfillmentExpense)}</strong></div>
         <div className="vendor-commission-preview__total"><span>{t('Estimated vendor profit before other expenses')}</span><strong>{formatPKR(previewVendorProfit)}</strong></div>
         <small>{t('Estimated vendor profit = your base price − supplier cost − fulfilment expense. JTBazar commission is added to the customer price and is not deducted from your base price. Enter actual costs for an accurate estimate.')}</small>
-      </div></div>
-    <div className="form-field"><label htmlFor="product-weight">{t('Shipping weight (grams)')}</label><input id="product-weight" name="weight_grams" type="number" min="0" step="1" defaultValue={product?.weight_grams ?? ''}/></div>
-    <div className="form-field"><label htmlFor="product-supplier-cost">{t('Supplier cost')} <span>{t('private')}</span></label><input id="product-supplier-cost" name="supplier_cost" type="number" min="0" step="0.01" value={supplierCostValue} onChange={(event) => setSupplierCostValue(event.target.value)} /></div>
-    <div className="form-field"><label htmlFor="product-fulfilment">{t('Fulfilment expense')}</label><input id="product-fulfilment" name="fulfillment_expense" type="number" min="0" step="0.01" value={fulfillmentExpenseValue} onChange={(event) => setFulfillmentExpenseValue(event.target.value)} /></div>
-    <div className="form-field"><label htmlFor="product-profit">{t('Minimum profit')}</label><input id="product-profit" name="minimum_profit" type="number" min="0" step="0.01" value={minimumProfitValue} onChange={(event) => setMinimumProfitValue(event.target.value)} /></div>
+      </div>
+    </section>
     <section className="form-field form-field--wide vendor-product-variants">
       <div className="account-panel__heading"><div><h3>{t('Product variants')}</h3><p className="form-help">{t('Add options such as Size, Color or Material. Each option value can have its own SKU, price and stock.')}</p></div><button type="button" className="button button--outline" onClick={() => setVariantRows((rows) => [...rows, { id: 'new-' + crypto.randomUUID(), option_label: 'Size', option_value: '', sku: null, price_override: null, attributes: {}, quantity: 0 }])}><Plus size={15} /> {t('Add variant')}</button></div>
       {variantsLoading && <p className="form-help">{t('Loading saved variants…')}</p>}
