@@ -15,6 +15,7 @@ export function PublicShopPage() {
   const { slug = '' } = useParams()
   const { status, error, findShopBySlug, categories } = useCatalog()
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [shopCategoryIds, setShopCategoryIds] = useState<string[]>([])
   const [shopSchedule, setShopSchedule] = useState<{ shop_hours: Record<string, { open: boolean; start: string; end: string }>; is_open: boolean } | null>(null)
   const shop = findShopBySlug(slug)
@@ -38,6 +39,16 @@ export function PublicShopPage() {
   }, [shop?.id])
   const shopCategories = categories.filter((category) => category.isActive !== false && shopCategoryIds.includes(category.id))
   const shopProducts = shopCatalog.products
+  const todayKey = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Karachi' }).format(new Date()).toLowerCase()
+  const formatShopTime = (value: string) => {
+    const match = /^(\\d{1,2}):(\\d{2})$/.exec(value.trim())
+    if (!match) return value
+    const hour = Number(match[1])
+    const minute = match[2]
+    if (hour > 23 || hour < 0) return value
+    const suffix = hour >= 12 ? 'PM' : 'AM'
+    return `${hour % 12 || 12}:${minute} ${suffix}`
+  }
 
   usePageMeta(shop ? shop.shopName : t('Vendor Shop'), shop ? `Shop ${shop.shopName} on JTBazar.` : t('Vendor shop details.'), { noIndex: status === 'ready' && (!shop || shop.productCount === 0) })
 
@@ -70,7 +81,10 @@ export function PublicShopPage() {
               <h1>{shop.shopName}</h1>
               <span className="vendor-status__badge vendor-status__badge--approved"><CheckCircle2 size={14} /> {t('Verified Seller')}</span>
             </div>
-            <p className="shop-description">{shop.description || t('This seller has not added a shop description yet.')}</p>
+            <div className={`shop-description-wrap${descriptionExpanded ? ' is-expanded' : ''}`}>
+              <p className="shop-description">{shop.description || t('This seller has not added a shop description yet.')}</p>
+              {(shop.description?.length ?? 0) > 240 && <button type="button" className="shop-description-toggle" onClick={() => setDescriptionExpanded((value) => !value)} aria-expanded={descriptionExpanded}>{t(descriptionExpanded ? 'View less' : 'View more')}</button>}
+            </div>
           </div>
         </div>
         <div className="shop-header-footer">
@@ -82,7 +96,15 @@ export function PublicShopPage() {
       <ReviewComposer kind="seller" targetId={shop.id} />
 
       <section className="shop-products-section">
-        {shopSchedule?.shop_hours && <div className="shop-hours-public"><h3>{t('Shop opening hours')}</h3><div className="shop-hours-public__grid">{(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const).map((day) => { const slot = shopSchedule.shop_hours[day]; return <div key={day}><strong>{t(day.charAt(0).toUpperCase() + day.slice(1))}</strong><span>{slot?.open ? `${slot.start} – ${slot.end}` : t('Closed')}</span></div> })}</div></div>}
+        <style>{`
+          .shop-description-wrap .shop-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+          .shop-description-wrap.is-expanded .shop-description { display: block; overflow: visible; }
+          .shop-description-toggle { margin-top: 6px; padding: 0; border: 0; color: #d97706; background: transparent; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
+          .shop-hours-public__grid > div.is-today { border: 1px solid #f59e0b; background: #fff7ed; }
+          .shop-hours-public__grid > div.is-today > strong { color: #c45b0b; }
+          .shop-hours-public__today { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 999px; color: #9a3412; background: #fed7aa; font-size: .68rem; font-weight: 700; }
+        `}</style>
+        {shopSchedule?.shop_hours && <div className="shop-hours-public"><h3>{t('Shop opening hours')}</h3><div className="shop-hours-public__grid">{(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const).map((day) => { const slot = shopSchedule.shop_hours[day]; const isToday = day === todayKey; return <div key={day} className={isToday ? 'is-today' : undefined} aria-current={isToday ? 'date' : undefined}><strong>{t(day.charAt(0).toUpperCase() + day.slice(1))}{isToday ? <span className="shop-hours-public__today">{t('Today')}</span> : null}</strong><span>{slot?.open ? `${formatShopTime(slot.start)} – ${formatShopTime(slot.end)}` : t('Closed')}</span></div> })}</div></div>}
         <div className="page-heading">
           <h2>{t('Shop Products')} ({shopCatalog.count})</h2>
         </div>
