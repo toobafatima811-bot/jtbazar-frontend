@@ -278,12 +278,13 @@ export type VendorProductVariantInput = {
   price_override: number | null
   attributes?: Record<string, unknown>
   quantity: number
+  image_url?: string | null
 }
 
 export async function listOwnProductVariants(productId: string): Promise<VendorProductVariantInput[]> {
   const client = getSupabase()
   const [variants, inventory, product] = await Promise.all([
-    client.from('product_variants').select('id, option_label, option_value, sku, price_override, attributes, sort_order')
+    client.from('product_variants').select('id, option_label, option_value, sku, price_override, attributes, image_url, sort_order')
       .eq('product_id', productId).order('sort_order').limit(100),
     client.from('product_inventory').select('variant_id, quantity').eq('product_id', productId).limit(100),
     (client as any).from('products').select('commission_percent').eq('id', productId).maybeSingle(),
@@ -300,6 +301,7 @@ export async function listOwnProductVariants(productId: string): Promise<VendorP
     sku: row.sku,
     price_override: row.price_override == null ? null : Number((Number(row.price_override) / commissionMultiplier).toFixed(2)),
     attributes: row.attributes as unknown as Record<string, unknown>,
+    image_url: row.image_url ?? null,
     quantity: stockByVariant.get(row.id) ?? 0,
   }))
 }
@@ -326,6 +328,7 @@ export async function saveOwnProductVariants(productId: string, variants: Vendor
       sku: variant.sku?.trim() || null,
       price_override: variant.price_override,
       attributes: variant.attributes ?? {},
+      image_url: variant.image_url ?? null,
       quantity: variant.quantity,
     })),
   })
@@ -375,6 +378,19 @@ export async function createVendorProduct(input: {
   assertError(error)
   if (!data) throw new Error('The product was not created.')
   return data
+}
+
+export async function uploadOwnProductVariantImage(productId: string, file: File): Promise<string> {
+  if (file.size > 10 * 1024 * 1024) throw new Error('Variant images must be 10 MB or smaller.')
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(file.type)) throw new Error('Choose a JPG, PNG, WebP or AVIF variant image.')
+  const client = getSupabase()
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (authError || !user) throw new Error('Sign in before uploading a variant image.')
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  const path = `${user.id}/${productId}/variants/${crypto.randomUUID()}-${safeName}`
+  const { error } = await client.storage.from('product-images').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+  assertError(error)
+  return client.storage.from('product-images').getPublicUrl(path).data.publicUrl
 }
 
 export async function uploadOwnProductImage(productId: string, file: File, altText: string): Promise<void> {
