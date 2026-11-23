@@ -157,5 +157,12 @@ export const AUTH_URDU: Record<string, string> = {
   'Too many attempts. Please wait a little before requesting another code.': 'بہت زیادہ کوششیں ہو چکی ہیں۔ نیا کوڈ منگوانے سے پہلے کچھ دیر انتظار کریں۔',
   'A new six-digit verification code has been sent. Please check your inbox.': 'نیا چھ ہندسوں کا تصدیقی کوڈ بھیج دیا گیا ہے۔ اپنا اِن باکس چیک کریں۔',
   'Google sign-in could not be completed for this email. If you created your account with email and password, please sign in with your email and password instead.': 'اس ای میل کے لیے گوگل سائن اِن مکمل نہیں ہو سکا۔ اگر آپ نے ای میل اور پاس ورڈ سے اکاؤنٹ بنایا تھا تو اسی طریقے سے سائن اِن کریں۔',
-  'Google sign-in was cancelled.': 'گوگل سائن اِن منسوخ کر دیا گیا۔'
+  'Google sign-in was cancelled.': 'گوگل سائن اِن منسوخ کر دیا گیا۔',
+  'Enter your Google account email first.': 'پہلے اپنے گوگل اکاؤنٹ کا ای میل پتہ درج کریں۔',
+  'No account found for this email. Please register first using Continue with Google.': 'اس ای میل پر کوئی اکاؤنٹ نہیں ملا۔ پہلے رجسٹریشن میں گوگل کے ساتھ جاری رکھیں۔',
+  'This email is registered with email and password. Please sign in with your email and password instead.': 'یہ ای میل پاس ورڈ والے اکاؤنٹ کے ساتھ رجسٹر ہے۔ براہ کرم ای میل اور پاس ورڈ سے سائن اِن کریں۔',
+  'This email is already registered with Google. Please sign in with Google instead.': 'یہ ای میل پہلے ہی گوگل کے ساتھ رجسٹر ہے۔ براہ کرم گوگل سے سائن اِن کریں۔',
+  'This email is already registered with email and password. Please sign in with your email and password.': 'یہ ای میل پہلے ہی ای میل اور پاس ورڈ کے ساتھ رجسٹر ہے۔ براہ کرم اسی طریقے سے سائن اِن کریں۔',
+  'This email is already registered with Google. Please use Continue with Google instead.': 'یہ ای میل پہلے ہی گوگل کے ساتھ رجسٹر ہے۔ براہ کرم گوگل کے ساتھ جاری رکھیں۔',
+  'The Google account you selected does not match the email entered on JTBazar. Please try again with the correct Google account.': 'آپ کا منتخب کردہ گوگل اکاؤنٹ JTBazar پر درج ای میل سے مطابقت نہیں رکھتا۔ براہ کرم درست گوگل اکاؤنٹ منتخب کریں۔'
 }
