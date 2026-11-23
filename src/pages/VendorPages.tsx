@@ -75,6 +75,7 @@ import {
   listOwnProductDeletionRequests,
   markVendorOrderReady,
   uploadOwnProductImage,
+  uploadOwnProductVariantImage,
   uploadVendorDocument,
   uploadVendorCnicImage,
   removeVendorDocument,
@@ -2638,7 +2639,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
   const [imagesLoading, setImagesLoading] = useState(false)
-  const [variantRows, setVariantRows] = useState<VendorProductVariantInput[]>([])
+  const [variantRows, setVariantRows] = useState<VendorProductVariantInput[]>([]); const [variantImageFiles, setVariantImageFiles] = useState<Record<string, File>>({})
   const [variantsLoading, setVariantsLoading] = useState(false)
   const [createdProductId, setCreatedProductId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState(product?.category_id ?? '')
@@ -2770,7 +2771,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
         productId = await createVendorProduct(createInput)
         setCreatedProductId(productId)
       }
-      if (productId) await saveOwnProductVariants(productId, variantRows)
+      if (productId) { const variantsWithImages = await Promise.all(variantRows.map(async (row) => variantImageFiles[row.id ?? ''] ? { ...row, image_url: await uploadOwnProductVariantImage(productId!, variantImageFiles[row.id ?? '']!) } : row)); await saveOwnProductVariants(productId, variantsWithImages) }
       if (isFoodCategory && productId) await setVendorFoodProductDetails({
         productId, sellingUnit, unitPrice: Number(unitPrice), quantityIncrement: foodIncrement,
         minimumQuantity: foodMinimum, isDailyItem, dailyStatus,
@@ -2836,6 +2837,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
         <label>{t('Variant SKU')}<input value={row.sku ?? ''} onChange={(event) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, sku: event.target.value || null } : item))} placeholder="Optional SKU" /></label>
         <label>{t('Price override (PKR)')}<input type="number" min="0" step="0.01" value={row.price_override ?? ''} onChange={(event) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, price_override: event.target.value === '' ? null : Number(event.target.value) } : item))} placeholder={t('Use base price')} /></label>
         <label>{t('Stock quantity')}<input type="number" min="0" step="1" value={row.quantity} onChange={(event) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
+        <label>{t('Variant image')}{row.image_url && <img src={row.image_url} alt="" width="52" height="52" style={{ objectFit: 'cover', borderRadius: 6 }} />}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => { const file = event.target.files?.[0]; if (file && file.size <= 10 * 1024 * 1024) setVariantImageFiles((files) => ({ ...files, [row.id ?? ''] : file })); else if (file) setError(t('Variant images must be 10 MB or smaller.')); event.target.value = '' }} />{variantImageFiles[row.id ?? ''] && <small>{variantImageFiles[row.id ?? ''].name}</small>}</label>
         <button type="button" className="icon-button" aria-label={t('Remove variant')} onClick={() => setVariantRows((rows) => rows.filter((_, i) => i !== index))}><X size={15} /></button>
       </div>)}
       <p className="form-help">{t('Variant changes are sent to JTBazar moderation before publication. Supplier costs and fulfilment details remain private.')}</p>
