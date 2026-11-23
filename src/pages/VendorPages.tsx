@@ -2680,6 +2680,7 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
   const [sellingUnit, setSellingUnit] = useState(product?.food_selling_unit ?? 'kg')
   const [unitPrice, setUnitPrice] = useState(String(product?.food_unit_price ?? product?.price ?? ''))
   const [regularPrice, setRegularPrice] = useState(String(product?.price ?? ''))
+  const [discountPercent, setDiscountPercent] = useState(String(product?.discount_percent ?? 0))
   const [quantityIncrement, setQuantityIncrement] = useState(String(product?.food_quantity_increment ?? 250))
   const [minimumQuantity, setMinimumQuantity] = useState(String(product?.food_minimum_quantity ?? 1))
   const [isDailyItem, setIsDailyItem] = useState(Boolean(product?.is_daily_item))
@@ -2716,6 +2717,9 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
     ? Number((previewBasePrice * commissionPercent / 100).toFixed(2)) : 0
   const previewCustomerPrice = Number.isFinite(previewBasePrice) && previewBasePrice >= 0
     ? Number((previewBasePrice + previewCommission).toFixed(2)) : 0
+  const previewDiscountPercent = Math.min(100, Math.max(0, Number(discountPercent) || 0))
+  const previewDiscountAmount = Number((previewCustomerPrice * previewDiscountPercent / 100).toFixed(2))
+  const previewFinalCustomerPrice = Number((previewCustomerPrice - previewDiscountAmount).toFixed(2))
   const unitOptions = [
     { value: 'kg', label: 'Kilogram (kg)' }, { value: 'g', label: 'Gram (g)' },
     { value: 'l', label: 'Litre (L)' }, { value: 'ml', label: 'Millilitre (ml)' },
@@ -2852,7 +2856,14 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
       <div className="form-field"><label htmlFor="food-daily-quantity">{t("Today's available quantity")}</label><input id="food-daily-quantity" type="number" min="0" step="1" value={dailyAvailableQuantity} onChange={(event) => setDailyAvailableQuantity(event.target.value)} disabled={!isDailyItem || dailyStatus !== 'available'} /><small className="form-help">{t('Quantity is available only when the daily item is marked Available today.')}</small></div>
     </section>}
     <h3 className="vendor-product-section-heading">{t('Stock and seller costs')}</h3>
-    <div className="form-field"><label htmlFor="product-discount">{t('Discount (%)')}</label><input id="product-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" defaultValue={product?.discount_percent ?? 0}/></div>
+    <div className="form-field"><label htmlFor="product-discount">{t('Discount (%)')}</label><input id="product-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)}/><small className="form-help">{t('Discount is calculated from the customer price after commission. Your base price remains unchanged.')}</small>
+      <div className="vendor-commission-preview vendor-discount-preview" aria-live="polite">
+        <div className="vendor-commission-preview__heading"><strong>{t('After-discount price calculation')}</strong><span>{previewDiscountPercent}% {t('discount')}</span></div>
+        <div><span>{t('Customer price before discount')}</span><strong>{formatPKR(previewCustomerPrice)}</strong></div>
+        <div><span>{t('Discount amount')}</span><strong>− {formatPKR(previewDiscountAmount)}</strong></div>
+        <div className="vendor-commission-preview__total"><span>{t('Customer price after discount')}</span><strong>{formatPKR(previewFinalCustomerPrice)}</strong></div>
+        <small>{t('Your base price and JTBazar commission preview are shown above. This discount reduces the customer checkout price; it does not change your entered base price.')}</small>
+      </div></div>
     <div className="form-field"><label htmlFor="product-weight">{t('Shipping weight (grams)')}</label><input id="product-weight" name="weight_grams" type="number" min="0" step="1" defaultValue={product?.weight_grams ?? ''}/></div>
     <div className="form-field"><label htmlFor="product-supplier-cost">{t('Supplier cost')} <span>{t('private')}</span></label><input id="product-supplier-cost" name="supplier_cost" type="number" min="0" step="0.01" defaultValue={product?.supplier_cost == null ? '' : String(product.supplier_cost)} /></div>
     <div className="form-field"><label htmlFor="product-fulfilment">{t('Fulfilment expense')}</label><input id="product-fulfilment" name="fulfillment_expense" type="number" min="0" step="0.01" defaultValue={product ? String(product.fulfillment_expense) : '0'} /></div>
