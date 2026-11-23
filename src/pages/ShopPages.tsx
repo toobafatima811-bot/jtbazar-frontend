@@ -25,8 +25,30 @@ function CatalogSearch({ t }: { t: Translator }) {
   return <form className="search-field" role="search" onSubmit={submit}><Search size={17} aria-hidden="true" /><label className="sr-only" htmlFor="catalog-search">{t('Search items')}</label><input id="catalog-search" type="search" placeholder={t('Search products, categories…')} value={value} onChange={(event) => setValue(event.target.value)} /><button type="submit" className="search-submit">{t('Search')}</button></form>
 }
 
-function CatalogFilters({ category, onCategory, sort, onSort, count, categories, t }: { category: string; onCategory: (id: string) => void; sort: PriceSort; onSort: (sort: PriceSort) => void; count: number; categories: Category[]; t: Translator }) {
-  return <div className="catalog-filters"><div className="category-chips" aria-label={t('Filter by category')}><button type="button" className={`category-chip${category === 'all' ? ' is-active' : ''}`} aria-pressed={category === 'all'} onClick={() => onCategory('all')}>{t('All')}</button>{categories.map((item) => <button key={item.id} type="button" className={`category-chip${category === item.id ? ' is-active' : ''}${item.isComingSoon ? ' is-coming-soon' : ''}`} aria-pressed={category === item.id} disabled={item.isComingSoon} title={item.isComingSoon ? t('Coming soon') : undefined} onClick={() => onCategory(item.id)}>{t(item.name)}{item.isComingSoon ? ` · ${t('Coming soon')}` : ''}</button>)}</div><div className="filter-meta"><span><SlidersHorizontal size={15} aria-hidden="true" /> {count} {t('products')}</span><label htmlFor="price-sort" className="sr-only">{t('Sort products by price')}</label><select id="price-sort" value={sort} onChange={(event) => onSort(event.target.value as PriceSort)}><option value="featured">{t('Featured')}</option><option value="price-low">{t('Price: low to high')}</option><option value="price-high">{t('Price: high to low')}</option></select></div></div>
+function CatalogFilters({ selected, onToggle, onClear, sort, onSort, count, categories, t }: { selected: string[]; onToggle: (id: string) => void; onClear: () => void; sort: PriceSort; onSort: (sort: PriceSort) => void; count: number; categories: Category[]; t: Translator }) {
+  const [expanded, setExpanded] = useState<string[]>([])
+  const parents = categories.filter((item) => !item.parentId && item.isActive !== false && !item.isComingSoon)
+  const childrenFor = (parentId: string) => categories.filter((item) => item.parentId === parentId && item.isActive !== false && !item.isComingSoon)
+  const selectedNames = categories.filter((item) => selected.includes(item.id))
+  return <section className="catalog-filter-panel" aria-label={t('Product filters')}>
+    <div className="catalog-filter-toolbar">
+      <div className="catalog-filter-toolbar__title"><SlidersHorizontal size={17}/><strong>{t('Filters')}</strong><span>{count} {t('products')}</span></div>
+      <div className="catalog-filter-toolbar__actions">{selected.length > 0 && <button type="button" className="catalog-clear-filters" onClick={onClear}>{t('Clear all')}</button>}<label htmlFor="price-sort" className="sr-only">{t('Sort products by price')}</label><select id="price-sort" value={sort} onChange={(event) => onSort(event.target.value as PriceSort)}><option value="featured">{t('Featured')}</option><option value="price-low">{t('Price: low to high')}</option><option value="price-high">{t('Price: high to low')}</option></select></div>
+    </div>
+    {selectedNames.length > 0 && <div className="catalog-selected-filters" aria-label={t('Selected filters')}>{selectedNames.map((item) => <button type="button" key={item.id} onClick={() => onToggle(item.id)}>{t(item.name)} <span aria-hidden="true">×</span></button>)}</div>}
+    <div className="catalog-filter-groups">{parents.map((parent) => {
+      const children = childrenFor(parent.id)
+      const checked = selected.includes(parent.id) || (children.length > 0 && children.every((child) => selected.includes(child.id)))
+      const open = expanded.includes(parent.id)
+      return <div className="catalog-filter-group" key={parent.id}>
+        <div className="catalog-filter-parent">
+          <label><input type="checkbox" checked={checked} onChange={() => onToggle(parent.id)}/><span>{t(parent.name)}</span><small>{children.length || 0}</small></label>
+          {children.length > 0 && <button type="button" className="catalog-filter-expand" aria-label={open ? t('Collapse subcategories') : t('Expand subcategories')} aria-expanded={open} onClick={() => setExpanded((old) => open ? old.filter((id) => id !== parent.id) : [...old, parent.id])}>{open ? '−' : '+'}</button>}
+        </div>
+        {open && children.length > 0 && <div className="catalog-filter-children">{children.map((child) => <label key={child.id}><input type="checkbox" checked={selected.includes(child.id) || selected.includes(parent.id)} onChange={() => onToggle(child.id)}/><span>{t(child.name)}</span></label>)}</div>}
+      </div>
+    })}</div>
+  </section>
 }
 
 function useCatalogFilters(products: Product[]) {
@@ -64,7 +86,7 @@ export function ShopPage() {
   const catalog = useCatalogFilters([])
   const page = useInfiniteProducts({ categoryId: catalog.category === 'all' ? null : catalog.category, sort: catalog.sort === 'featured' ? 'featured' : catalog.sort === 'price-low' ? 'price-low' : 'price-high' })
   usePageMeta(t('Shop the collection'), t('Explore the currently published JTBazar catalog.'))
-  return <div className="page-shell shop-catalog-page"><div className="page-heading page-heading--with-search shop-catalog-heading"><div><span className="eyebrow">{t('Shop JTBazar')}</span><h1>{t('Shop all products')}</h1><p>{t('Find everyday essentials, popular picks and new arrivals from trusted JTBazar sellers.')}</p></div><CatalogSearch t={t} /></div><CatalogFilters category={catalog.category} onCategory={catalog.setCategory} sort={catalog.sort} onSort={catalog.setSort} count={page.count} categories={categories} t={t} />{page.loading ? <LoadingState label="Loading the live catalog…" /> : page.error && page.products.length === 0 ? <ErrorState message={page.error} /> : <><ProductGrid products={page.products} emptyTitle={t('No products are published yet')} emptyDescription={t('New listings will appear after sellers add products and they pass moderation.')} /><ProductLoadMore loading={page.loadingMore} hasMore={page.hasMore} onLoad={page.loadMore} />{page.error && <ErrorState message={page.error} />}</>}</div>
+  return <div className="page-shell shop-catalog-page"><div className="page-heading page-heading--with-search shop-catalog-heading"><div><span className="eyebrow">{t('Shop JTBazar')}</span><h1>{t('Shop all products')}</h1><p>{t('Find everyday essentials, popular picks and new arrivals from trusted JTBazar sellers.')}</p></div><CatalogSearch t={t} /></div><CatalogFilters selected={selectedCategories} onToggle={toggleCategory} onClear={() => setSelectedCategories([])} sort={sort} onSort={setSort} count={page.count} categories={categories} t={t} />{page.loading ? <LoadingState label="Loading the live catalog…" /> : page.error && page.products.length === 0 ? <ErrorState message={page.error} /> : <><ProductGrid products={page.products} emptyTitle={t('No products are published yet')} emptyDescription={t('New listings will appear after sellers add products and they pass moderation.')} /><ProductLoadMore loading={page.loadingMore} hasMore={page.hasMore} onLoad={page.loadMore} />{page.error && <ErrorState message={page.error} />}</>}</div>
 }
 
 export function CategoriesPage() {
