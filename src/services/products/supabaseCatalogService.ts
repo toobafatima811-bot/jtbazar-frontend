@@ -234,7 +234,8 @@ export async function loadPublicProductsPage(options: PublicProductPageOptions =
     .eq('publication_status', 'published')
     .eq('moderation_status', 'approved')
 
-  if (options.categoryIds?.length) query = query.in('category_id', options.categoryIds)\n  else if (options.categoryId) query = query.eq('category_id', options.categoryId)
+  if (options.categoryIds?.length) query = query.in('category_id', options.categoryIds)
+  else if (options.categoryId) query = query.eq('category_id', options.categoryId)
   if (options.sellerId) query = query.eq('seller_id', options.sellerId)
   const term = options.search?.trim().replace(/[,%]/g, ' ').slice(0, 80)
   if (term) query = query.or(`name.ilike.%${term}%,short_description.ilike.%${term}%`)
