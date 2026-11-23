@@ -41,7 +41,7 @@ export function PublicShopPage() {
   const shopProducts = shopCatalog.products
   const todayKey = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Karachi' }).format(new Date()).toLowerCase()
   const formatShopTime = (value: string) => {
-    const match = /^(\\d{1,2}):(\\d{2})$/.exec(value.trim())
+    const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
     if (!match) return value
     const hour = Number(match[1])
     const minute = match[2]
