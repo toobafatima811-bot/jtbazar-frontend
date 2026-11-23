@@ -64,6 +64,7 @@ export function ProductPage() {
   }, [status, slug, product?.id, ensureProductBySlug])
   const [quantity, setQuantity] = useState(product?.foodMinimumQuantity ?? 1)
   const [variantId, setVariantId] = useState(product?.variants[0]?.id ?? '')
+  const [variantImageActivated, setVariantImageActivated] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
   const [imageFailed, setImageFailed] = useState(false)
   const [productCampaign, setProductCampaign] = useState<ProductCampaign | null>(null)
@@ -105,6 +106,7 @@ export function ProductPage() {
   useEffect(() => {
     setQuantity(product?.foodMinimumQuantity ?? 1)
     setVariantId(product?.variants[0]?.id ?? '')
+    setVariantImageActivated(false)
     setImageIndex(0)
     setImageFailed(false)
     addLock.current = false
@@ -147,8 +149,8 @@ export function ProductPage() {
   const sellerShop = shops.find((shop) => shop.slug === product.sellerSlug)
   const foodCategory = isFoodAvailabilityCategory(product.categoryId, categories)
   const selectedVariant = product.variants.find((variant) => variant.id === variantId)
-  // Put the selected variant's own image first, while retaining the product gallery as fallback/additional views.
-  const images = selectedVariant?.imageUrl
+  // Keep the main product image as the initial gallery image. Only switch to a variant image after the customer selects a variant.
+  const images = variantImageActivated && selectedVariant?.imageUrl
     ? [selectedVariant.imageUrl, ...product.images.filter((image) => image !== selectedVariant.imageUrl)]
     : product.images
   const activeImage = images[imageIndex]
@@ -226,7 +228,7 @@ export function ProductPage() {
         <p className="product-price-caption">{product.foodSellingUnit ? `${t('Price per')} ${product.foodSellingUnit}` : t('Published catalog price')} · {t('Availability is checked again when you place your order.')}</p>
         {product.isDailyItem && <p className="product-price-caption"><strong>{t(product.dailyStatus === 'coming_soon' ? 'Coming soon' : product.dailyStatus === 'not_today' ? 'Not for today' : 'Available today')}</strong>{product.dailyStatus === 'available' && product.dailyAvailableQuantity !== undefined ? ` · ${product.dailyAvailableQuantity} ${t('available')}` : ''}</p>}
         {product.foodSellingUnit && product.sellerId && <p className="product-price-caption">{t('Nearby food delivery only · within 5 km of the shop')}</p>}
-        {product.variants.length > 0 && <fieldset className="variant-picker"><legend>{t(product.variants[0].label)}</legend><div className="variant-options">{product.variants.map((variant) => { const variantUnavailable = variant.availabilityStatus === 'out-of-stock'; return <button type="button" key={variant.id} className={`variant-option${variantId === variant.id ? ' is-selected' : ''}`} aria-pressed={variantId === variant.id} aria-disabled={variantUnavailable} onClick={() => { setVariantId(variant.id); setImageIndex(0); setImageFailed(false); setQuantity(Math.max(1, Math.min(quantity, getCartLineMaxQuantity(product, { productId: product.id, variantId: variant.id, quantity })))) }}><span>{t(variant.value)}{variant.price !== undefined && variant.price !== product.price ? ` · ${formatPKR(variant.price)}` : ''}</span>{variantId === variant.id && <Check size={14} />}{variantUnavailable && <small>{t(foodCategory ? 'Currently Unavailable' : 'Out of stock')}</small>}</button> })}</div></fieldset>}
+        {product.variants.length > 0 && <fieldset className="variant-picker"><legend>{t(product.variants[0].label)}</legend><div className="variant-options">{product.variants.map((variant) => { const variantUnavailable = variant.availabilityStatus === 'out-of-stock'; return <button type="button" key={variant.id} className={`variant-option${variantId === variant.id ? ' is-selected' : ''}`} aria-pressed={variantId === variant.id} aria-disabled={variantUnavailable} onClick={() => { setVariantId(variant.id); setVariantImageActivated(true); setImageIndex(0); setImageFailed(false); setQuantity(Math.max(1, Math.min(quantity, getCartLineMaxQuantity(product, { productId: product.id, variantId: variant.id, quantity })))) }}><span>{t(variant.value)}{variant.price !== undefined && variant.price !== product.price ? ` · ${formatPKR(variant.price)}` : ''}</span>{variantId === variant.id && <Check size={14} />}{variantUnavailable && <small>{t(foodCategory ? 'Currently Unavailable' : 'Out of stock')}</small>}</button> })}</div></fieldset>}
         <div className="detail-purchase-row"><span className="eyebrow">{t('Quantity')}</span><QuantitySelector value={quantity} min={product.foodMinimumQuantity ?? 1} displayValue={product.foodSellingUnit ? getFoodQuantityLabel(product, quantity) : undefined} max={getCartLineMaxQuantity(product, { productId: product.id, quantity, variantId: variantId || undefined })} onChange={setQuantity} disabled={alreadyInCart} label={`${t('Quantity for')} ${productName}`} /></div>
         {product.foodSellingUnit && <p className="product-price-caption">{t('Estimated price for selected quantity')}: <strong>{formatPKR(Number(((product.foodUnitPrice ?? 0) * (product.foodQuantityIncrement ?? 1) * quantity / (product.foodSellingUnit === 'kg' || product.foodSellingUnit === 'l' ? 1000 : 1)).toFixed(2)))}</strong></p>}
         <button type="button" className="button button--dark button--full" disabled={!canAdd || alreadyInCart} onClick={handleAdd}>{alreadyInCart ? <><Check size={17} /> {t('Added to cart')}</> : <>{t('Add to cart')} <ArrowRight size={17} /></>}</button>
