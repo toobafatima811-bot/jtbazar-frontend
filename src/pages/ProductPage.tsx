@@ -172,11 +172,38 @@ export function ProductPage() {
 
   async function shareProduct() {
     const url = `${SITE_URL}/products/${currentProduct.slug}`
-    const shareText = currentProduct.shortDescription || productName
+    const shareText = `${productName} · ${formatPKR(price)}\n${currentProduct.shortDescription || productName}\n${url}`
     try {
-      if (navigator.share) await navigator.share({ title: productName, text: shareText, url })
-      else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(url); push(t('Product link copied.'), 'success') }
-      else { window.prompt(t('Copy this product link'), url) }
+      if (navigator.share) {
+        // Attach the actual first product photo where the receiving app supports file sharing.
+        // The product URL remains in the message so WhatsApp and other apps can open the listing.
+        const imageUrl = currentProduct.images[0]
+        if (imageUrl && typeof File !== 'undefined' && navigator.canShare) {
+          try {
+            const response = await fetch(imageUrl, { mode: 'cors' })
+            if (response.ok) {
+              const blob = await response.blob()
+              if (blob.type.startsWith('image/')) {
+                const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
+                const imageFile = new File([blob], `${currentProduct.slug}.${extension}`, { type: blob.type })
+                const files = [imageFile]
+                if (navigator.canShare({ files })) {
+                  await navigator.share({ files, title: productName, text: shareText })
+                  return
+                }
+              }
+            }
+          } catch {
+            // If image download or file sharing is unavailable, fall back to the shareable product URL.
+          }
+        }
+        await navigator.share({ title: productName, text: shareText, url })
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+        push(t('Product link copied.'), 'success')
+      } else {
+        window.prompt(t('Copy this product link'), url)
+      }
     } catch (cause) {
       if (cause instanceof Error && cause.name !== 'AbortError') push(t('The product link could not be shared.'), 'error')
     }
