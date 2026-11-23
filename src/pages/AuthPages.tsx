@@ -223,11 +223,26 @@ export function LoginPage() {
   }
 
   const google = async () => {
+    const email = form.email.trim().toLowerCase()
+    if (!email) { setErrors((current) => ({ ...current, email: 'Enter your Google account email first.' })); return }
+    if (!emailPattern(email)) { setErrors((current) => ({ ...current, email: 'Enter a valid email address.' })); return }
     clearRememberedAccountSuspension()
     setStatus('loading')
     setMessage('')
     try {
-      throwIfAuthError(await authService.signInWithGoogle(redirectTarget))
+      const lookup = throwIfAuthError(await authService.getAccountAuthMethod(email))
+      const method = lookup.data as string
+      if (method === 'none') {
+        setStatus('error')
+        setMessage('No account found for this email. Please register first using Continue with Google.')
+        return
+      }
+      if (method === 'password' || method === 'mixed') {
+        setStatus('error')
+        setMessage('This email is registered with email and password. Please sign in with your email and password instead.')
+        return
+      }
+      throwIfAuthError(await authService.signInWithGoogle(redirectTarget, email))
       setStatus('success')
       setMessage('Redirecting to Google sign-in…')
     } catch (error) {
@@ -267,10 +282,25 @@ export function RegisterPage() {
     setErrors((current) => ({ ...current, [name]: '' }))
   }
   const google = async () => {
+    const email = form.email.trim().toLowerCase()
+    if (!email) { setErrors((current) => ({ ...current, email: 'Enter your Google account email first.' })); return }
+    if (!isValidGmailAddress(email)) { setErrors((current) => ({ ...current, email: 'Enter a valid Gmail address ending in @gmail.com.' })); return }
     setStatus('loading')
     setMessage('')
     try {
-      throwIfAuthError(await authService.signInWithGoogle(redirectTarget))
+      const lookup = throwIfAuthError(await authService.getAccountAuthMethod(email))
+      const method = lookup.data as string
+      if (method === 'google') {
+        setStatus('error')
+        setMessage('This email is already registered with Google. Please sign in with Google instead.')
+        return
+      }
+      if (method === 'password' || method === 'mixed') {
+        setStatus('error')
+        setMessage('This email is already registered with email and password. Please sign in with your email and password.')
+        return
+      }
+      throwIfAuthError(await authService.signInWithGoogle(redirectTarget, email))
       setStatus('success')
       setMessage('Redirecting to Google sign-in…')
     } catch (error) {
@@ -296,9 +326,20 @@ export function RegisterPage() {
     setMessage('')
     const email = form.email.trim().toLowerCase()
     try {
+      const lookup = throwIfAuthError(await authService.getAccountAuthMethod(email))
+      const method = lookup.data as string
+      if (method === 'google') {
+        setStatus('error')
+        setMessage('This email is already registered with Google. Please use Continue with Google instead.')
+        return
+      }
+      if (method === 'password' || method === 'mixed') {
+        setStatus('error')
+        setMessage('This email is already registered. Please sign in instead.')
+        return
+      }
       const response = throwIfAuthError(await authService.signUp(email, form.password, form.name.trim()))
-      // Supabase intentionally returns an obfuscated user with no identities for an
-      // email that already belongs to an account. Do not send that customer to OTP.
+      // Keep this fallback because Supabase may obfuscate duplicate signups.
       if (response.data.user && Array.isArray(response.data.user.identities) && response.data.user.identities.length === 0) {
         setStatus('error')
         setMessage('This email is already registered. Please sign in instead.')
@@ -809,6 +850,7 @@ export function AuthCallbackPage() {
         const query = new URLSearchParams(location.search)
         const hash = new URLSearchParams(location.hash.replace(/^#/, ''))
         const provider = query.get('provider')
+        const expectedGoogleEmail = query.get('expected_email')?.trim().toLowerCase() ?? ''
         const providerError = query.get('error_description') || query.get('error') || hash.get('error_description') || hash.get('error')
         if (provider === 'google' && providerError) {
           const normalized = providerError.replace(/\+/g, ' ')
@@ -836,6 +878,10 @@ export function AuthCallbackPage() {
               ? await authService.setSession(hashAccessToken!, hashRefreshToken!)
               : await authService.exchangeCodeForSession(code!))
         if (!response.data.session) throw new Error('Your account session could not be created. Please sign in again.')
+        if (provider === 'google' && expectedGoogleEmail && response.data.session.user.email?.trim().toLowerCase() !== expectedGoogleEmail) {
+          await authService.signOutLocal()
+          throw new Error('The Google account you selected does not match the email entered on JTBazar. Please try again with the correct Google account.')
+        }
         if (provider === 'google' && authService.isGoogleBlockedForUser(response.data.session.user)) {
           await authService.signOutLocal()
           throw new Error(GOOGLE_PASSWORD_ACCOUNT_MESSAGE)
