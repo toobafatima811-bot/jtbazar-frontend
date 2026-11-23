@@ -51,18 +51,7 @@ function CatalogFilters({ selected, onToggle, onClear, sort, onSort, count, cate
   </section>
 }
 
-function useCatalogFilters(products: Product[]) {
-  const [category, setCategory] = useState('all')
-  const [sort, setSort] = useState<PriceSort>('featured')
-  const items = useMemo(() => {
-    const result = products.filter((product) => category === 'all' || product.categoryId === category)
-    if (sort === 'price-low') result.sort((a, b) => a.price - b.price)
-    if (sort === 'price-high') result.sort((a, b) => b.price - a.price)
-    if (sort === 'featured') result.sort((a, b) => Number(Boolean(b.isFeatured)) - Number(Boolean(a.isFeatured)))
-    return result
-  }, [products, category, sort])
-  return { category, setCategory, sort, setSort, items }
-}
+
 
 function CatalogState({ status, error }: { status: 'loading' | 'ready' | 'error' | 'unconfigured'; error: string | null }) {
   if (status === 'loading') return <LoadingState label="Loading the live catalog…" />
@@ -83,8 +72,31 @@ function ProductLoadMore({ loading, hasMore, onLoad }: { loading: boolean; hasMo
 export function ShopPage() {
   const { t } = useI18n()
   const { categories } = useCatalog()
-  const catalog = useCatalogFilters([])
-  const page = useInfiniteProducts({ categoryId: catalog.category === 'all' ? null : catalog.category, sort: catalog.sort === 'featured' ? 'featured' : catalog.sort === 'price-low' ? 'price-low' : 'price-high' })
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [sort, setSort] = useState<PriceSort>('featured')
+  const toggleCategory = (id: string) => setSelectedCategories((old) => {
+    const item = categories.find((category) => category.id === id)
+    if (!item) return old
+    if (!item.parentId) {
+      const children = categories.filter((category) => category.parentId === id).map((category) => category.id)
+      const isFullySelected = old.includes(id) || (children.length > 0 && children.every((childId) => old.includes(childId)))
+      return isFullySelected ? old.filter((value) => value !== id && !children.includes(value)) : [...old.filter((value) => !children.includes(value)), id]
+    }
+    if (old.includes(item.parentId)) {
+      const siblings = categories.filter((category) => category.parentId === item.parentId).map((category) => category.id)
+      return [...old.filter((value) => value !== item.parentId && value !== id), ...siblings.filter((value) => value !== id)]
+    }
+    return old.includes(id) ? old.filter((value) => value !== id) : [...old, id]
+  })
+  const categoryIds = useMemo(() => {
+    const ids = new Set<string>()
+    selectedCategories.forEach((id) => {
+      ids.add(id)
+      categories.filter((item) => item.parentId === id && item.isActive !== false && !item.isComingSoon).forEach((child) => ids.add(child.id))
+    })
+    return [...ids].sort()
+  }, [selectedCategories, categories])
+  const page = useInfiniteProducts({ categoryIds, sort })
   usePageMeta(t('Shop the collection'), t('Explore the currently published JTBazar catalog.'))
   return <div className="page-shell shop-catalog-page"><div className="page-heading page-heading--with-search shop-catalog-heading"><div><span className="eyebrow">{t('Shop JTBazar')}</span><h1>{t('Shop all products')}</h1><p>{t('Find everyday essentials, popular picks and new arrivals from trusted JTBazar sellers.')}</p></div><CatalogSearch t={t} /></div><CatalogFilters selected={selectedCategories} onToggle={toggleCategory} onClear={() => setSelectedCategories([])} sort={sort} onSort={setSort} count={page.count} categories={categories} t={t} />{page.loading ? <LoadingState label="Loading the live catalog…" /> : page.error && page.products.length === 0 ? <ErrorState message={page.error} /> : <><ProductGrid products={page.products} emptyTitle={t('No products are published yet')} emptyDescription={t('New listings will appear after sellers add products and they pass moderation.')} /><ProductLoadMore loading={page.loadingMore} hasMore={page.hasMore} onLoad={page.loadMore} />{page.error && <ErrorState message={page.error} />}</>}</div>
 }
