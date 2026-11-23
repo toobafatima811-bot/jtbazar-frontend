@@ -813,3 +813,23 @@ img { display: block; max-width: 100%; }
 .vendor-form__privacy p{margin:7px 0}
 .vendor-form__privacy p:last-child{margin-bottom:0}
 @media(max-width:640px){.vendor-form__privacy{padding:13px;font-size:.84rem}}
+
+
+/* Vendor application privacy notice modal */
+.vendor-form__privacy-trigger{width:100%;display:flex;align-items:center;gap:10px;margin:16px 0 20px;padding:13px 16px;border:1px solid var(--border,#d8ddd8);border-left:4px solid var(--accent,#3b6b50);border-radius:12px;background:var(--surface-muted,#f7f9f7);color:var(--text,#202820);text-align:left;font:inherit;cursor:pointer;transition:border-color .18s ease,background .18s ease}
+.vendor-form__privacy-trigger:hover{border-color:var(--accent,#3b6b50);background:var(--surface,#fff)}
+.vendor-form__privacy-trigger>svg:first-child{flex:0 0 auto;color:var(--accent,#3b6b50)}
+.vendor-form__privacy-trigger>span:nth-child(2){font-weight:700}
+.vendor-form__privacy-trigger-hint{margin-left:auto;color:var(--muted,#647067);font-size:.82rem}
+.vendor-form__privacy-trigger>svg:last-child{flex:0 0 auto;color:var(--muted,#647067)}
+.vendor-privacy-modal-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,18,.62);backdrop-filter:blur(3px)}
+.vendor-privacy-modal{width:min(100%,680px);max-height:min(82vh,760px);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border,#d8ddd8);border-radius:18px;background:var(--surface,#fff);color:var(--text,#202820);box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.vendor-privacy-modal__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px 16px;border-bottom:1px solid var(--border,#e5e9e5)}
+.vendor-privacy-modal__header>div>span{display:flex;align-items:center;gap:7px;color:var(--accent,#3b6b50);font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.vendor-privacy-modal__header h2{margin:8px 0 0;font-size:1.25rem;line-height:1.35}
+.vendor-privacy-modal__close{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto;border:1px solid var(--border,#d8ddd8);border-radius:50%;background:transparent;color:inherit;cursor:pointer}
+.vendor-privacy-modal__content{overflow-y:auto;padding:18px 24px;font-size:.92rem;line-height:1.75}
+.vendor-privacy-modal__content p{margin:0 0 14px}
+.vendor-privacy-modal__content p:last-child{margin-bottom:0}
+.vendor-privacy-modal__footer{display:flex;justify-content:flex-end;padding:14px 24px 20px;border-top:1px solid var(--border,#e5e9e5)}
+@media(max-width:640px){.vendor-form__privacy-trigger{align-items:flex-start;flex-wrap:wrap;padding:12px}.vendor-form__privacy-trigger-hint{order:3;width:100%;margin-left:27px}.vendor-privacy-modal-backdrop{align-items:flex-end;padding:10px}.vendor-privacy-modal{max-height:88vh;border-radius:18px 18px 12px 12px}.vendor-privacy-modal__header{padding:18px 18px 14px}.vendor-privacy-modal__content{padding:16px 18px;font-size:.88rem}.vendor-privacy-modal__footer{padding:12px 18px 16px}}
