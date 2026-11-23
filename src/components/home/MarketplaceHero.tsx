@@ -74,8 +74,8 @@ export function MarketplaceHero({ product, shop }: MarketplaceHeroProps) {
     <section className="marketplace-hero jtb-home-hero" aria-roledescription={t('carousel')} aria-label={t('Homepage highlights')} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false) }}>
       <div className="marketplace-hero__copy">
         <span className="marketplace-hero__eyebrow"><span aria-hidden="true" />{t('One marketplace, more possibilities')}</span>
-        <h1 id="marketplace-hero-title">{activeHero ? titleParts.map((part, index) => <span key={`${activeHero.id}-${index}`}>{index > 0 && <br />}{t(part)}</span>) : <>{t('Everything You Need,')}<br />{t('All in One Place')}</>}</h1>
-        <p className="marketplace-hero__description">{t(activeHero?.subtitle || 'Buy and sell products, discover services, find properties, and connect with trusted vendors across multiple categories.')}</p>
+        <h1 id="marketplace-hero-title">{activeHero ? titleParts.map((part, index) => <span key={`${activeHero.id}-${index}`}>{index > 0 && <br />}{t(part)}</span>) : <>{t('Shop Online in Karachi, Pakistan')}<br />{t('with JTBazar')}</>}</h1>
+        <p className="marketplace-hero__description">{t(activeHero?.subtitle || 'Explore perfumes, beauty, fashion, electronics, home and kitchen, grocery, car accessories, sports, toys and stationery at JTBazar. Delivery is available in serviceable areas of Karachi, Pakistan.')}</p>
         <div className="marketplace-hero__actions">
           {primaryHref.startsWith('https://') ? <a className="marketplace-hero__primary" href={primaryHref}>{primaryLabel}<ArrowRight size={17} aria-hidden="true" /></a> : <Link className="marketplace-hero__primary" to={primaryHref}>{primaryLabel}<ArrowRight size={17} aria-hidden="true" /></Link>}
           <Link className="marketplace-hero__secondary" to={sellerHref}>{sellerLabel}<ArrowRight size={16} aria-hidden="true" /></Link>
