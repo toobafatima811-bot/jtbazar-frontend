@@ -97,6 +97,7 @@ function mapProduct(
       value: variant.option_value,
       ...(variant.price_override !== null ? { price: Number(variant.price_override) * (1 - discountPercent / 100), originalPrice: Number(variant.price_override) } : {}),
       ...(variant.sku ? { sku: variant.sku } : {}),
+      ...(variant.image_url ? { imageUrl: variant.image_url } : {}),
       availabilityStatus: productStatus(availabilityByVariant.get(variant.id), availabilityKnown),
       stockQuantity: inventoryByVariant.get(variant.id),
     }))
@@ -252,7 +253,7 @@ export async function loadPublicProductsPage(options: PublicProductPageOptions =
   const sellerIds = [...new Set(rows.map((row) => row.seller_id).filter((id): id is string => Boolean(id)))]
   const [imageResult, variantResult, availabilityResult, inventoryResult, shopResult] = await Promise.all([
     client.from('product_images').select('id, product_id, image_url, storage_path, alt_text, sort_order, is_primary, created_at').in('product_id', ids).order('sort_order', { ascending: true }),
-    client.from('product_variants').select('id, product_id, option_label, option_value, sku, price_override, attributes, is_active, sort_order, created_at, updated_at').in('product_id', ids).eq('is_active', true).order('sort_order', { ascending: true }),
+    client.from('product_variants').select('id, product_id, option_label, option_value, sku, price_override, attributes, image_url, is_active, sort_order, created_at, updated_at').in('product_id', ids).eq('is_active', true).order('sort_order', { ascending: true }),
     client.rpc('get_public_availability', { product_ids: ids }),
     client.rpc('get_public_inventory', { product_ids: ids }),
     client.rpc('list_public_shops'),
