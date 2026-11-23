@@ -111,6 +111,7 @@ export interface Database {
     Functions: {
       vendor_get_commission_preview: { Args: { p_category_id: string | null }; Returns: number }
       current_user_is_admin: { Args: Record<string, never>; Returns: boolean }
+      get_auth_method_for_email: { Args: { p_email: string }; Returns: string }
       get_public_availability: { Args: { product_ids: string[] }; Returns: { product_id: string; variant_id: string | null; is_available: boolean }[] }
       get_public_inventory: { Args: { product_ids: string[] }; Returns: { product_id: string; variant_id: string | null; available_quantity: number | null }[] }
       list_public_shops: { Args: Record<string, never>; Returns: PublicShopRow[] }
