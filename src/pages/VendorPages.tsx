@@ -182,7 +182,7 @@ function AccountSuspensionNotice({ reason }: { reason: string | null }) {
 }
 
 function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile | null; onSaved: (profile: SellerProfile) => void; mode?: 'apply' | 'settings' }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { user } = useAuth()
   const accountEmail = (user?.email ?? '').trim().toLowerCase()
   const { push } = useToast()
@@ -362,23 +362,30 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
       <div><span className="vendor-form__eyebrow">{t(mode === 'settings' ? 'Shop profile & operations' : 'JTBazar seller onboarding')}</span><h2>{t(profile?.status === 'rejected' ? 'Correct and resubmit application' : mode === 'settings' ? 'Shop settings' : profile ? 'Update application' : 'Apply to open a shop')}</h2><p>{t(mode === 'settings' ? 'Manage your public shop details, location, opening hours and verification documents.' : 'Tell us about your shop and how you operate. Your private verification files are only available to marketplace administrators.')}</p></div>
       <button type="button" className="vendor-business-info-button" onClick={() => setShowBusinessGuide(true)} aria-label={t('What should my business information PDF include?')}><span className="vendor-business-info-button__icon">i</span><span>{t('Business information guide')}</span></button>
     </div>
-    <button type="button" className="vendor-form__privacy-trigger" onClick={() => setShowPrivacyNotice(true)} aria-haspopup="dialog" aria-label={t('Privacy notice / رازداری کا نوٹس')}>
+    <button type="button" className="vendor-form__privacy-trigger" onClick={() => setShowPrivacyNotice(true)} aria-haspopup="dialog" aria-label={locale === 'ur' ? 'رازداری کا نوٹس' : 'Privacy notice'}>
       <ShieldCheck size={17} aria-hidden="true" />
-      <span>Privacy notice / رازداری کا نوٹس</span>
+      <span>{locale === 'ur' ? 'رازداری کا نوٹس' : 'Privacy notice'}</span>
       <span className="vendor-form__privacy-trigger-hint">{t('How we use and protect your information')}</span>
       <ArrowRight size={16} aria-hidden="true" />
     </button>
     {showPrivacyNotice && <div className="vendor-privacy-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowPrivacyNotice(false) }}>
-      <section className="vendor-privacy-modal" role="dialog" aria-modal="true" aria-labelledby="vendor-privacy-modal-title">
+      <section className="vendor-privacy-modal" role="dialog" aria-modal="true" aria-labelledby="vendor-privacy-modal-title" lang={locale} dir={locale === 'ur' ? 'rtl' : 'ltr'}>
         <header className="vendor-privacy-modal__header">
-          <div><span><ShieldCheck size={17} /> {t('Seller information')}</span><h2 id="vendor-privacy-modal-title">Privacy notice / رازداری کا نوٹس</h2></div>
+          <div><span><ShieldCheck size={17} /> {t('Seller information')}</span><h2 id="vendor-privacy-modal-title">{locale === 'ur' ? 'رازداری کا نوٹس' : 'Privacy notice'}</h2></div>
           <button type="button" className="vendor-privacy-modal__close" onClick={() => setShowPrivacyNotice(false)} aria-label={t('Close privacy notice')}><X size={19} /></button>
         </header>
         <div className="vendor-privacy-modal__content">
-          <p>We collect your owner name, contact details, shop address, CNIC number and CNIC images only to verify seller identity, protect the marketplace from fraud, secure vendor accounts and handle disputes or legal requests. / ہم یہ معلومات صرف وینڈر کی شناخت کی تصدیق، فراڈ سے بچاؤ، اکاؤنٹ کی حفاظت اور تنازعات کے حل کے لیے لیتے ہیں۔</p>
-          <p>CNIC documents are stored in a private storage area and are available only to authorised JTBazar marketplace administrators. Document links expire after 5 minutes. We do not sell CNIC information or show it to other vendors. / آپ کی CNIC دستاویزات صرف مجاز JTBazar منتظمین دیکھ سکتے ہیں۔</p>
-          <p>Retention: for approved vendors, CNIC data is kept only while the vendor relationship is active and is scheduled for secure deletion within 90 days after account closure. For rejected applications, it is scheduled for deletion within 90 days after the final decision. Longer retention is limited to a legal requirement or an active fraud investigation or dispute. / مسترد شدہ درخواست یا اکاؤنٹ بند ہونے کے بعد CNIC ڈیٹا 90 دن کے اندر حذف کیا جائے گا، سوائے قانونی ضرورت یا جاری تنازعے کے۔</p>
-          <p>Questions or a privacy request? Contact JTBazar support from your account. / رازداری سے متعلق سوال کے لیے اپنے اکاؤنٹ سے JTBazar سپورٹ سے رابطہ کریں۔</p>
+          {locale === 'ur' ? <>
+            <p>ہم آپ کے مالک کا نام، رابطے کی تفصیلات، دکان کا پتہ، شناختی کارڈ نمبر اور شناختی کارڈ کی تصاویر صرف وینڈر کی شناخت کی تصدیق، مارکیٹ پلیس کو فراڈ سے محفوظ رکھنے، وینڈر اکاؤنٹس کی حفاظت اور تنازعات یا قانونی درخواستوں سے نمٹنے کے لیے جمع کرتے ہیں۔</p>
+            <p>شناختی کارڈ کی دستاویزات ایک نجی اسٹوریج ایریا میں محفوظ کی جاتی ہیں اور صرف JTBazar کے مجاز مارکیٹ پلیس منتظمین کو دستیاب ہوتی ہیں۔ دستاویزات کے لنکس 5 منٹ بعد ختم ہو جاتے ہیں۔ ہم شناختی کارڈ کی معلومات فروخت نہیں کرتے اور نہ ہی دوسرے وینڈرز کو دکھاتے ہیں۔</p>
+            <p>ڈیٹا محفوظ رکھنے کی مدت: منظور شدہ وینڈرز کا شناختی کارڈ ڈیٹا صرف وینڈر کے ساتھ کاروباری تعلق فعال رہنے تک رکھا جاتا ہے اور اکاؤنٹ بند ہونے کے 90 دن کے اندر محفوظ طریقے سے حذف کرنے کے لیے مقرر کیا جاتا ہے۔ مسترد شدہ درخواستوں کا ڈیٹا حتمی فیصلے کے 90 دن کے اندر حذف کرنے کے لیے مقرر کیا جاتا ہے۔ زیادہ مدت تک ڈیٹا صرف قانونی تقاضے یا جاری فراڈ کی تحقیقات یا تنازعے کی صورت میں رکھا جائے گا۔</p>
+            <p>سوالات یا رازداری سے متعلق درخواست کے لیے اپنے اکاؤنٹ سے JTBazar سپورٹ سے رابطہ کریں۔</p>
+          </> : <>
+            <p>We collect your owner name, contact details, shop address, CNIC number and CNIC images only to verify seller identity, protect the marketplace from fraud, secure vendor accounts and handle disputes or legal requests.</p>
+            <p>CNIC documents are stored in a private storage area and are available only to authorised JTBazar marketplace administrators. Document links expire after 5 minutes. We do not sell CNIC information or show it to other vendors.</p>
+            <p>Retention: for approved vendors, CNIC data is kept only while the vendor relationship is active and is scheduled for secure deletion within 90 days after account closure. For rejected applications, it is scheduled for deletion within 90 days after the final decision. Longer retention is limited to a legal requirement or an active fraud investigation or dispute.</p>
+            <p>Questions or a privacy request? Contact JTBazar support from your account.</p>
+          </>}
         </div>
         <footer className="vendor-privacy-modal__footer"><button type="button" className="button button--dark" onClick={() => setShowPrivacyNotice(false)}>{t('Close')}</button></footer>
       </section>
