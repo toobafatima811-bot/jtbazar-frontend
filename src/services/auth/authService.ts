@@ -64,9 +64,9 @@ export function isGoogleBlockedForUser(user: User): boolean {
   }>
   const emailIdentity = identities.find((identity) => identity.provider === 'email')
   const googleIdentity = identities.find((identity) => identity.provider === 'google')
-  if (!emailIdentity || !googleIdentity) return false
-  if (!emailIdentity.created_at || !googleIdentity.created_at) return true
-  return new Date(emailIdentity.created_at).getTime() <= new Date(googleIdentity.created_at).getTime()
+  // Any account that has both identities must use email/password. This also
+  // blocks legacy accounts where Supabase previously auto-linked Google.
+  return Boolean(emailIdentity && googleIdentity)
 }
 
 export const authService = {
