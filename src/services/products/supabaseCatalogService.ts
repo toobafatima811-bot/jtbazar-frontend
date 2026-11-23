@@ -177,6 +177,7 @@ export type PublicProductPageOptions = {
   page?: number
   pageSize?: number
   categoryId?: string | null
+  categoryIds?: string[]
   sellerId?: string | null
   search?: string
   maxPrice?: number
