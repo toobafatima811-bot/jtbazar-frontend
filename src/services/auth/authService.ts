@@ -9,10 +9,11 @@ function redirect(path: string) {
   return new URL(path, window.location.origin).toString()
 }
 
-function callbackRedirect(nextPath: string, provider?: 'google', flow?: 'recovery') {
+function callbackRedirect(nextPath: string, provider?: 'google', flow?: 'recovery', expectedEmail?: string) {
   const query = new URLSearchParams({ next: nextPath })
   if (provider) query.set('provider', provider)
   if (flow) query.set('flow', flow)
+  if (expectedEmail) query.set('expected_email', expectedEmail.trim().toLowerCase())
   return redirect(`/auth/callback?${query.toString()}`)
 }
 
@@ -69,6 +70,10 @@ export function isGoogleBlockedForUser(user: User): boolean {
 }
 
 export const authService = {
+  getAccountAuthMethod(email: string) {
+    return getSupabase().rpc('get_auth_method_for_email', { p_email: email.trim().toLowerCase() })
+  },
+
   async signInWithPassword(email: string, password: string) {
     const result = await getSupabase().auth.signInWithPassword({ email, password })
     return result
@@ -121,10 +126,13 @@ export const authService = {
     return result
   },
 
-  signInWithGoogle(redirectPath = '/account') {
+  signInWithGoogle(redirectPath = '/account', expectedEmail = '') {
     return getSupabase().auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: callbackRedirect(redirectPath, 'google') },
+      options: {
+        redirectTo: callbackRedirect(redirectPath, 'google', undefined, expectedEmail),
+        queryParams: { login_hint: expectedEmail.trim().toLowerCase(), prompt: 'select_account' },
+      },
     })
   },
 
