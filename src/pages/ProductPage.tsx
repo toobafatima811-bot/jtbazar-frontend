@@ -63,7 +63,7 @@ export function ProductPage() {
     return () => { active = false }
   }, [status, slug, product?.id, ensureProductBySlug])
   const [quantity, setQuantity] = useState(product?.foodMinimumQuantity ?? 1)
-  const [variantId, setVariantId] = useState(product?.variants[0]?.id ?? '')
+  const [variantId, setVariantId] = useState('')
   const [variantImageActivated, setVariantImageActivated] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
   const [imageFailed, setImageFailed] = useState(false)
@@ -105,7 +105,7 @@ export function ProductPage() {
 
   useEffect(() => {
     setQuantity(product?.foodMinimumQuantity ?? 1)
-    setVariantId(product?.variants[0]?.id ?? '')
+    setVariantId('')
     setVariantImageActivated(false)
     setImageIndex(0)
     setImageFailed(false)
