@@ -196,6 +196,8 @@ img { display: block; max-width: 100%; }
 .back-link { display: inline-flex; align-items: center; gap: 7px; margin: 3px 0 20px; color: var(--muted); font-size: 11px; }
 .back-link:hover { color: var(--forest); }
 .catalog-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 17px; margin: 24px 0; }
+.catalog-load-more { display: flex; justify-content: center; padding: 30px 0 12px; }
+.catalog-load-more .button { min-width: 210px; }
 .category-chips { display: flex; max-width: 100%; gap: 8px; overflow-x: auto; padding: 3px 1px 7px; scrollbar-width: thin; }
 .category-chip { flex: 0 0 auto; min-height: 35px; padding: 0 14px; border: 1px solid #e7e8e0; border-radius: 20px; color: #646a61; background: #fff; font-size: 10px; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .category-chip:hover { border-color: #becbb3; }
