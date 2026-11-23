@@ -198,7 +198,7 @@ const publicPageInflight = new Map<string, Promise<PublicProductPage>>()
 export function loadCachedPublicProductsPage(options: PublicProductPageOptions = {}): Promise<PublicProductPage> {
   const key = JSON.stringify({
     page: options.page ?? 0, pageSize: options.pageSize ?? 12,
-    categoryId: options.categoryId ?? null, sellerId: options.sellerId ?? null,
+    categoryId: options.categoryId ?? null, categoryIds: [...(options.categoryIds ?? [])].sort(), sellerId: options.sellerId ?? null,
     search: options.search?.trim() ?? '', maxPrice: options.maxPrice ?? null,
     sort: options.sort ?? 'newest',
   })
@@ -234,7 +234,7 @@ export async function loadPublicProductsPage(options: PublicProductPageOptions =
     .eq('publication_status', 'published')
     .eq('moderation_status', 'approved')
 
-  if (options.categoryId) query = query.eq('category_id', options.categoryId)
+  if (options.categoryIds?.length) query = query.in('category_id', options.categoryIds)\n  else if (options.categoryId) query = query.eq('category_id', options.categoryId)
   if (options.sellerId) query = query.eq('seller_id', options.sellerId)
   const term = options.search?.trim().replace(/[,%]/g, ' ').slice(0, 80)
   if (term) query = query.or(`name.ilike.%${term}%,short_description.ilike.%${term}%`)
