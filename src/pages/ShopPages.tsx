@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Search, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '../components/common/States'
 import { CategoryCard } from '../components/products/CategoryCard'
@@ -50,15 +50,12 @@ function CatalogState({ status, error }: { status: 'loading' | 'ready' | 'error'
 }
 
 function ProductLoadMore({ loading, hasMore, onLoad }: { loading: boolean; hasMore: boolean; onLoad: () => void }) {
-  const sentinel = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const node = sentinel.current
-    if (!node || !hasMore) return
-    const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) onLoad() }, { rootMargin: '500px 0px' })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasMore, onLoad])
-  return <div ref={sentinel} className="catalog-load-more" aria-live="polite">{loading ? <LoadingState label="Loading more products…" /> : hasMore ? <span>Scroll to load more</span> : <span>You've reached the end of the collection.</span>}</div>
+  if (!hasMore && !loading) return null
+  return <div className="catalog-load-more" aria-live="polite">
+    <button type="button" className="button button--dark" onClick={onLoad} disabled={loading || !hasMore}>
+      {loading ? 'Loading more products…' : 'Load More Products'}
+    </button>
+  </div>
 }
 
 export function ShopPage() {
