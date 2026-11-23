@@ -7,6 +7,7 @@ export interface ProductVariant {
   price?: number
   originalPrice?: number
   sku?: string
+  imageUrl?: string
   availabilityStatus?: Exclude<AvailabilityStatus, 'unavailable'>
   stockQuantity?: number | null
 }
