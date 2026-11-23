@@ -1,4 +1,8 @@
 export const HOME_URDU: Record<string, string> = {
+  'Shop Online in Karachi, Pakistan': 'کراچی، پاکستان میں آن لائن خریداری کریں',
+  'with JTBazar': 'جے ٹی بازار کے ساتھ',
+  'Explore perfumes, beauty, fashion, electronics, home and kitchen, grocery, car accessories, sports, toys and stationery at JTBazar. Delivery is available in serviceable areas of Karachi, Pakistan.': 'جے ٹی بازار پر پرفیومز، بیوٹی، فیشن، الیکٹرانکس، گھر اور کچن، گروسری، کار ایکسیسریز، کھیلوں کا سامان، کھلونے اور اسٹیشنری خریدیں۔ ڈیلیوری کراچی کے مخصوص علاقوں میں دستیاب ہے۔',
+  'Shop online in Karachi with JTBazar, Pakistan’s marketplace for perfumes, beauty, fashion, electronics, home, grocery, car accessories and everyday essentials. Cash on delivery where available.': 'جے ٹی بازار کے ساتھ کراچی میں آن لائن خریداری کریں۔ پرفیومز، بیوٹی، فیشن، الیکٹرانکس، گھر، گروسری، کار ایکسیسریز اور روزمرہ کی ضروری اشیا دریافت کریں۔ جہاں دستیاب ہو، کیش آن ڈیلیوری کی سہولت موجود ہے۔',
   'One marketplace, more possibilities': 'ایک مارکیٹ پلیس، مزید امکانات',
   'Everything You Need,': 'آپ کی ہر ضرورت،',
   'All in One Place': 'سب ایک ہی جگہ',
