@@ -26,8 +26,11 @@ function jsonRecords(value: Json): JsonObject[] {
 
 function mapSpecifications(value: Json): ProductSpecification[] {
   return jsonRecords(value).flatMap((entry) => {
-    if (typeof entry.label !== 'string' || typeof entry.value !== 'string') return []
-    return [{ label: entry.label, value: entry.value }]
+    // Vendor listing form stores specification names as "name"; older/admin
+    // records may use "label". Accept both so saved vendor specs render publicly.
+    const label = typeof entry.label === 'string' ? entry.label : entry.name
+    if (typeof label !== 'string' || typeof entry.value !== 'string') return []
+    return [{ label, value: entry.value }]
   })
 }
 
