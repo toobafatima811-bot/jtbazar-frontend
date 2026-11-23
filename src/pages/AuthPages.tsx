@@ -297,6 +297,13 @@ export function RegisterPage() {
     const email = form.email.trim().toLowerCase()
     try {
       const response = throwIfAuthError(await authService.signUp(email, form.password, form.name.trim()))
+      // Supabase intentionally returns an obfuscated user with no identities for an
+      // email that already belongs to an account. Do not send that customer to OTP.
+      if (response.data.user && Array.isArray(response.data.user.identities) && response.data.user.identities.length === 0) {
+        setStatus('error')
+        setMessage('This email is already registered. Please sign in instead.')
+        return
+      }
       if (response.data.session) {
         // Email confirmation may be disabled in some Supabase environments.
         // Keep registration deterministic: sign out and ask the customer to sign in.
