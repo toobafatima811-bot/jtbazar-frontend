@@ -2681,6 +2681,9 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
   const [unitPrice, setUnitPrice] = useState(String(product?.food_unit_price ?? product?.price ?? ''))
   const [regularPrice, setRegularPrice] = useState(String(product?.price ?? ''))
   const [discountPercent, setDiscountPercent] = useState(String(product?.discount_percent ?? 0))
+  const [supplierCostValue, setSupplierCostValue] = useState(product?.supplier_cost == null ? '' : String(product.supplier_cost))
+  const [fulfillmentExpenseValue, setFulfillmentExpenseValue] = useState(String(product?.fulfillment_expense ?? 0))
+  const [minimumProfitValue, setMinimumProfitValue] = useState(String(product?.minimum_profit ?? 0))
   const [quantityIncrement, setQuantityIncrement] = useState(String(product?.food_quantity_increment ?? 250))
   const [minimumQuantity, setMinimumQuantity] = useState(String(product?.food_minimum_quantity ?? 1))
   const [isDailyItem, setIsDailyItem] = useState(Boolean(product?.is_daily_item))
@@ -2720,6 +2723,9 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
   const previewDiscountPercent = Math.min(100, Math.max(0, Number(discountPercent) || 0))
   const previewDiscountAmount = Number((previewCustomerPrice * previewDiscountPercent / 100).toFixed(2))
   const previewFinalCustomerPrice = Number((previewCustomerPrice - previewDiscountAmount).toFixed(2))
+  const previewSupplierCost = Math.max(0, Number(supplierCostValue) || 0)
+  const previewFulfillmentExpense = Math.max(0, Number(fulfillmentExpenseValue) || 0)
+  const previewVendorProfit = Number((previewBasePrice - previewSupplierCost - previewFulfillmentExpense).toFixed(2))
   const unitOptions = [
     { value: 'kg', label: 'Kilogram (kg)' }, { value: 'g', label: 'Gram (g)' },
     { value: 'l', label: 'Litre (L)' }, { value: 'ml', label: 'Millilitre (ml)' },
@@ -2862,12 +2868,14 @@ function ProductEditor({ product, categories, onCancel, onSaved }: {
         <div><span>{t('Customer price before discount')}</span><strong>{formatPKR(previewCustomerPrice)}</strong></div>
         <div><span>{t('Discount amount')}</span><strong>− {formatPKR(previewDiscountAmount)}</strong></div>
         <div className="vendor-commission-preview__total"><span>{t('Customer price after discount')}</span><strong>{formatPKR(previewFinalCustomerPrice)}</strong></div>
-        <small>{t('Your base price and JTBazar commission preview are shown above. This discount reduces the customer checkout price; it does not change your entered base price.')}</small>
+        <div><span>{t('Supplier cost')} + {t('Fulfilment expense')}</span><strong>{formatPKR(previewSupplierCost + previewFulfillmentExpense)}</strong></div>
+        <div className="vendor-commission-preview__total"><span>{t('Estimated vendor profit before other expenses')}</span><strong>{formatPKR(previewVendorProfit)}</strong></div>
+        <small>{t('Estimated vendor profit = your base price − supplier cost − fulfilment expense. JTBazar commission is added to the customer price and is not deducted from your base price. Enter actual costs for an accurate estimate.')}</small>
       </div></div>
     <div className="form-field"><label htmlFor="product-weight">{t('Shipping weight (grams)')}</label><input id="product-weight" name="weight_grams" type="number" min="0" step="1" defaultValue={product?.weight_grams ?? ''}/></div>
-    <div className="form-field"><label htmlFor="product-supplier-cost">{t('Supplier cost')} <span>{t('private')}</span></label><input id="product-supplier-cost" name="supplier_cost" type="number" min="0" step="0.01" defaultValue={product?.supplier_cost == null ? '' : String(product.supplier_cost)} /></div>
-    <div className="form-field"><label htmlFor="product-fulfilment">{t('Fulfilment expense')}</label><input id="product-fulfilment" name="fulfillment_expense" type="number" min="0" step="0.01" defaultValue={product ? String(product.fulfillment_expense) : '0'} /></div>
-    <div className="form-field"><label htmlFor="product-profit">{t('Minimum profit')}</label><input id="product-profit" name="minimum_profit" type="number" min="0" step="0.01" defaultValue={product ? String(product.minimum_profit) : '0'} /></div>
+    <div className="form-field"><label htmlFor="product-supplier-cost">{t('Supplier cost')} <span>{t('private')}</span></label><input id="product-supplier-cost" name="supplier_cost" type="number" min="0" step="0.01" value={supplierCostValue} onChange={(event) => setSupplierCostValue(event.target.value)} /></div>
+    <div className="form-field"><label htmlFor="product-fulfilment">{t('Fulfilment expense')}</label><input id="product-fulfilment" name="fulfillment_expense" type="number" min="0" step="0.01" value={fulfillmentExpenseValue} onChange={(event) => setFulfillmentExpenseValue(event.target.value)} /></div>
+    <div className="form-field"><label htmlFor="product-profit">{t('Minimum profit')}</label><input id="product-profit" name="minimum_profit" type="number" min="0" step="0.01" value={minimumProfitValue} onChange={(event) => setMinimumProfitValue(event.target.value)} /></div>
     <section className="form-field form-field--wide vendor-product-variants">
       <div className="account-panel__heading"><div><h3>{t('Product variants')}</h3><p className="form-help">{t('Add options such as Size, Color or Material. Each option value can have its own SKU, price and stock.')}</p></div><button type="button" className="button button--outline" onClick={() => setVariantRows((rows) => [...rows, { id: 'new-' + crypto.randomUUID(), option_label: 'Size', option_value: '', sku: null, price_override: null, attributes: {}, quantity: 0 }])}><Plus size={15} /> {t('Add variant')}</button></div>
       {variantsLoading && <p className="form-help">{t('Loading saved variants…')}</p>}
