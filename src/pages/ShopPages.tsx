@@ -9,7 +9,6 @@ import { usePageMeta } from '../hooks/usePageMeta'
 import { useI18n } from '../i18n/LocaleContext'
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts'
 import type { Category } from '../types/category'
-import type { Product } from '../types/product'
 import type { PriceSort } from '../components/products/FilterControls'
 
 type Translator = (english: string) => string
@@ -139,7 +138,7 @@ export function CategoryPage() {
     </div>
     {foodSubcategories.length > 0 && <section className="food-subcategories"><div className="section-heading"><span className="eyebrow">{t('Explore Food')}</span><h2>{t('Food subcategories')}</h2></div><div className="category-grid">{foodSubcategories.map((item) => <CategoryCard key={item.id} category={item} />)}</div></section>}
     <div id="category-product-results" className="category-page__results">
-      <CatalogFilters category={category.id} onCategory={(id) => navigate(id === 'all' ? '/shop' : `/categories/${categories.find((item) => item.id === id)?.slug ?? ''}`)} sort={sort} onSort={setSort} count={page.count} categories={category.isFoodCategory ? [] : categories.filter((item) => item.parentId === category.id)} t={t} />
+      <CatalogFilters selected={[category.id]} onToggle={(id: string) => { const target = categories.find((item) => item.id === id); navigate(target ? `/categories/${target.slug}` : '/shop') }} onClear={() => navigate('/shop')} sort={sort} onSort={setSort} count={page.count} categories={categories} t={t} />
       {page.loading ? <LoadingState label="Loading category products…" /> : page.error && page.products.length === 0 ? <ErrorState message={page.error} /> : <><ProductGrid products={page.products} emptyTitle={t('Nothing on this page yet')} emptyDescription={t('Try another category or clear your filters.')} /><ProductLoadMore loading={page.loadingMore} hasMore={page.hasMore} onLoad={page.loadMore} />{page.error && <ErrorState message={page.error} />}</>}
     </div>
   </div>
