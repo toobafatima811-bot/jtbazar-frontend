@@ -18,6 +18,7 @@ import { getCartLineUnitPrice, isCartLineAvailable } from '../utils/cart'
 import { isValidEmail, isValidPakistaniMobile, normalizePakistaniMobile } from '../utils/contactValidation'
 import { toUserErrorMessage } from '../utils/errorMessage'
 import { reverseGeocodeCoordinates } from '../services/account/reverseGeocodeService'
+import { getSupabase } from '../lib/supabase'
 
 interface LocationCoordinates {
   lat: number
@@ -59,6 +60,8 @@ export function CheckoutPage() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [deliveryQuote, setDeliveryQuote] = useState<{ distance_km: number | null; delivery_fee: number; pricing_mode: string } | null>(null)
+  const [deliveryQuoteLoading, setDeliveryQuoteLoading] = useState(false)
   const idempotencyKey = useRef(newCheckoutKey())
   const formEditedRef = useRef(false)
   const locationRequestRef = useRef(0)
@@ -165,8 +168,23 @@ export function CheckoutPage() {
     }).catch(() => undefined)
   }, [user])
 
+  useEffect(() => {
+    let active = true
+    if (!coords) { setDeliveryQuote(null); setDeliveryQuoteLoading(false); return }
+    setDeliveryQuoteLoading(true)
+    void (getSupabase() as any).rpc('get_delivery_fee_quote', { p_delivery_lat: coords.lat, p_delivery_lng: coords.lng })
+      .then(({ data, error }: { data: any; error: any }) => {
+        if (!active) return
+        if (error) throw error
+        setDeliveryQuote(data as { distance_km: number | null; delivery_fee: number; pricing_mode: string })
+      })
+      .catch(() => { if (active) setDeliveryQuote(null) })
+      .finally(() => { if (active) setDeliveryQuoteLoading(false) })
+    return () => { active = false }
+  }, [coords?.lat, coords?.lng])
+
   const subtotal = lines.reduce((sum, line) => sum + getCartLineUnitPrice(findProductById(line.productId), line) * line.quantity, 0)
-  const effectiveDeliveryFee = settings.freeDeliveryEnabled ? 0 : settings.deliveryFee
+  const effectiveDeliveryFee = settings.freeDeliveryEnabled ? 0 : (deliveryQuote?.delivery_fee ?? settings.deliveryFee)
   const total = subtotal + effectiveDeliveryFee
   const linesAvailable = lines.length > 0 && lines.every((line) => isCartLineAvailable(findProductById(line.productId), line))
   const requiresFoodDeliveryPin = lines.some((line) => { const product = findProductById(line.productId); return Boolean(product?.foodSellingUnit) })
@@ -382,7 +400,7 @@ export function CheckoutPage() {
           <div className="checkout-mini-items">{lines.map((line) => <CartItem key={`${line.productId}-${line.variantId ?? 'default'}`} line={line} compact onRemove={() => remove(line.productId, line.variantId)} />)}</div>
           <div className="order-summary">
             <div className="order-summary__row"><span>{t('Item subtotal')}</span><strong>{formatPKR(subtotal)}</strong></div>
-            <div className="order-summary__row"><span>{t('Delivery fee')}</span><strong>{formatPKR(effectiveDeliveryFee)}</strong></div>
+            <div className="order-summary__row"><span>{t('Delivery fee')}{deliveryQuote?.distance_km != null ? ` (${deliveryQuote.distance_km.toFixed(1)} km)` : ''}</span><strong>{deliveryQuoteLoading ? t('Calculating…') : formatPKR(effectiveDeliveryFee)}</strong></div>{deliveryQuote?.pricing_mode === 'distance' && <p style={{margin:'4px 0 8px',fontSize:12,color:'#64748b'}}>{t('Estimated distance-based delivery charge. Final fee is verified when your order is placed.')}</p>}
             <div className="order-summary__total"><span>{t('Total')}</span><strong>{formatPKR(total)}</strong></div>
             <p style={{margin:"10px 0 0",fontSize:12,lineHeight:1.5,color:"#64748b"}}>{t("Eligible Flash Sale, BOGO and Bundle savings are verified securely when you place your order. Only the single best offer per product is applied; discounts are never stacked. Your final payable amount is confirmed after campaign savings.")}</p>
           </div>
