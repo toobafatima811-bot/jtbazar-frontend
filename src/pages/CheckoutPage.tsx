@@ -61,8 +61,10 @@ export function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const idempotencyKey = useRef(newCheckoutKey())
   const formEditedRef = useRef(false)
+  const locationRequestRef = useRef(0)
 
   function captureLocation(showSuccess = false) {
+    const requestId = ++locationRequestRef.current
     if (!navigator.geolocation) {
       setGeoError(t(requiresFoodDeliveryPin ? 'A location pin is required for nearby food delivery, but this browser cannot read your location.' : 'Location is not available in this browser. Enable location access to continue checkout.'))
       return
@@ -80,8 +82,10 @@ export function CheckoutPage() {
           capturedAt: new Date().toISOString(),
         }
         if (showSuccess) formEditedRef.current = true
+        if (requestId !== locationRequestRef.current) return
         setCoords(captured)
         void reverseGeocodeCoordinates(latitude, longitude).then((address) => {
+          if (requestId !== locationRequestRef.current) return
           if (!address) {
             setGeoError(t('GPS pin confirmed, but no street address was found. Enter or correct the address manually.'))
             if (showSuccess) push(t('Delivery location pin confirmed.'), 'success')
@@ -97,11 +101,13 @@ export function CheckoutPage() {
           setGeoError(null)
           if (showSuccess) push(t('Delivery location and address found.'), 'success')
         }).catch(() => {
+          if (requestId !== locationRequestRef.current) return
           setGeoError(t('GPS pin confirmed, but the street address could not be resolved. Enter the address manually.'))
           if (showSuccess) push(t('Delivery location pin confirmed.'), 'success')
         }).finally(() => setGeoLoading(false))
       },
       (failure) => {
+        if (requestId !== locationRequestRef.current) return
         setGeoLoading(false)
         setGeoError(failure.code === failure.PERMISSION_DENIED
           ? t('Location access is blocked. Allow it in your browser settings and try again.')
@@ -146,6 +152,8 @@ export function CheckoutPage() {
             address: preferred.address_line_1 || '',
             instructions: preferred.delivery_instructions || '',
           }))
+          locationRequestRef.current += 1
+          setGeoLoading(false)
           if (preferred.latitude != null && preferred.longitude != null) {
             setCoords({ lat: preferred.latitude, lng: preferred.longitude, name: preferred.location_label || 'Saved location', capturedAt: new Date().toISOString() })
           } else {
@@ -186,10 +194,18 @@ export function CheckoutPage() {
   function setField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = event.target
     formEditedRef.current = true
+    if (name === 'city' || name === 'area' || name === 'address') {
+      locationRequestRef.current += 1
+      setGeoLoading(false)
+      setCoords(null)
+      setGeoError(t('Address changed. Please confirm the delivery pin again so it matches your address.'))
+    }
     setForm((current) => ({ ...current, [name]: value }))
   }
 
   function applyAddress(id: string) {
+    locationRequestRef.current += 1
+    setGeoLoading(false)
     setSelectedAddressId(id)
     const saved = addresses.find((address) => address.id === id)
     if (!saved) return
