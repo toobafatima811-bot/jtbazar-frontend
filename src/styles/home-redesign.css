@@ -2076,3 +2076,26 @@
     font-size: 11px;
   }
 }
+
+
+/* Campaign artwork must keep its own intrinsic image ratio; never force a banner height. */
+.jtb-home-page .home-promotion-placement .home-admin-banner {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  overflow: hidden;
+  background: transparent;
+}
+.jtb-home-page .home-promotion-placement .home-admin-banner img {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: unset !important;
+  object-position: center;
+}
