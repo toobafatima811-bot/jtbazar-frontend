@@ -89,7 +89,7 @@ export function HomePage() {
   const heroShop = shops.find((shop) => shop.shopImageUrl)
   const newArrivals = newestProducts.products.filter((product) => product.isPublished).slice(0, 5)
   const renderCampaignBanners = (position: string) => <PromotionPlacement campaigns={homepageBanners.filter((item) => item.display_position === position)} />
-  const knownBannerPositions = ['top_promo', 'hero_banner', 'category_feature', 'before_popular_products', 'product_strip', 'offer_section', 'seller_banner']
+  const knownBannerPositions = ['top_promo', 'hero_banner', 'category_feature', 'before_popular_products', 'product_strip', 'offer_section', 'seller_banner', 'app_download_banner']
   const unplacedBanners = homepageBanners.filter((item) => !knownBannerPositions.includes(item.display_position || ''))
   const renderProductCampaignSections = () => productCampaigns.map((campaign) => {
     const selectedProducts = campaign.product_ids.map((id) => campaignProducts.find((product) => product.id === id)).filter((product): product is Product => Boolean(product))
@@ -178,6 +178,9 @@ export function HomePage() {
       {renderCampaignBanners('seller_banner')}
       <PromotionPlacement campaigns={unplacedBanners} />
 
+      {homepageBanners.some((item) => item.display_position === 'app_download_banner')
+        ? renderCampaignBanners('app_download_banner')
+        : <>
       <section className="home-app-banner" aria-labelledby="home-app-title">
         <div className="home-app-banner__copy">
           <span className="home-eyebrow">{t('JTBazar Mobile App')}</span>
@@ -217,6 +220,7 @@ export function HomePage() {
           <div className="home-app-float home-app-float--trusted"><ShieldCheck size={17}/><span><strong>Shop with confidence</strong><small>JTBazar marketplace</small></span></div>
         </div>
       </section>
+        </>}
 
       <section className="home-section home-arrivals" aria-labelledby="new-arrivals-title">
         <div className="home-section__heading">
