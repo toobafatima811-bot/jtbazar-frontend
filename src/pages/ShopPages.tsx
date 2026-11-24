@@ -103,8 +103,11 @@ export function ShopPage() {
 export function CategoriesPage() {
   const { t } = useI18n()
   const { categories, status, error } = useCatalog()
+  const [visibleCount, setVisibleCount] = useState(12)
+  const visibleCategories = categories.slice(0, visibleCount)
+  const hasMoreCategories = visibleCount < categories.length
   usePageMeta(t('Browse categories'), t('Browse active product categories in the JTBazar store.'))
-  return <div className="page-shell"><Link to="/shop" className="back-link"><ArrowLeft size={15} /> {t('Shop all')}</Link><div className="page-heading"><span className="eyebrow">{t('A place for every page')}</span><h1>{t('Browse the')} <em>{t('collections.')}</em></h1><p>{t('Choose an active category to explore published products.')}</p></div><CatalogState status={status} error={error} />{status === 'ready' && (categories.length ? <div className="category-grid category-grid--large">{categories.map((category) => <CategoryCard key={category.id} category={category} />)}</div> : <EmptyState title="No categories are published yet" description="Active categories will appear here after they are configured in the store." actionLabel="Browse the collection" actionHref="/shop" />)}</div>
+  return <div className="page-shell"><Link to="/shop" className="back-link"><ArrowLeft size={15} /> {t('Shop all')}</Link><div className="page-heading"><span className="eyebrow">{t('A place for every page')}</span><h1>{t('Browse the')} <em>{t('collections.')}</em></h1><p>{t('Choose an active category to explore published products.')}</p></div><CatalogState status={status} error={error} />{status === 'ready' && (categories.length ? <><div className="category-grid category-grid--large">{visibleCategories.map((category) => <CategoryCard key={category.id} category={category} />)}</div>{hasMoreCategories && <div className="catalog-load-more"><button type="button" className="button button--dark" onClick={() => setVisibleCount((count) => Math.min(count + 12, categories.length))}>{t('Show more')}</button></div>}</> : <EmptyState title="No categories are published yet" description="Active categories will appear here after they are configured in the store." actionLabel="Browse the collection" actionHref="/shop" />)}</div>
 }
 
 export function CategoryPage() {
