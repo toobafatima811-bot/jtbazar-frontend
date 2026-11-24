@@ -43,7 +43,7 @@ export function HomePage() {
   const [productCampaigns, setProductCampaigns] = useState<ProductCampaign[]>([])
   const [campaignProducts, setCampaignProducts] = useState<Product[]>([])
   const [homepageBanners, setHomepageBanners] = useState<PromotionItem[]>([])
-  usePageMeta(t('Online Shopping in Karachi, Pakistan'), t('Shop online in Karachi with JTBazar, Pakistan’s marketplace for perfumes, beauty, fashion, electronics, home, grocery, car accessories and everyday essentials. Cash on delivery where available.'), { structuredData: { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((faq) => ({ '@type': 'Question', name: faq.question, acceptedAnswer: { '@type': 'Answer', text: faq.answer } })) } })
+  usePageMeta(t('JTBazar | Online Shopping in Karachi, Pakistan'), t('JTBazar (JT Bazar) is an online shopping marketplace in Karachi, Pakistan (jt-bazar.com). Shop electronics, perfumes, beauty, fashion, home essentials & grocery with cash on delivery.'), { structuredData: { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((faq) => ({ '@type': 'Question', name: faq.question, acceptedAnswer: { '@type': 'Answer', text: faq.answer } })) } })
   useEffect(() => {
     let active = true
     void fetchActiveProductCampaigns().then((rows) => { if (active) setProductCampaigns(rows.slice(0, 1)) }).catch((cause) => console.warn('Product campaign could not be loaded:', cause))

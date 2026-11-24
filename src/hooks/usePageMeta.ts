@@ -26,7 +26,7 @@ export function usePageMeta(title: string, description: string, options: PageMet
   useEffect(() => {
     const cleanTitle = title.trim()
     const suffix = ` | ${STORE_NAME}`
-    const fullTitle = cleanTitle.toLowerCase().endsWith(suffix.toLowerCase()) ? cleanTitle : `${cleanTitle}${suffix}`
+    const fullTitle = cleanTitle.toLowerCase().includes(STORE_NAME.toLowerCase()) ? cleanTitle : `${cleanTitle}${suffix}`
     const metaDescription = normalizeMetaDescription(description, cleanTitle)
     const canonicalUrl = `${SITE_URL}${window.location.pathname}`
     const imageUrl = options.image ? new URL(options.image, SITE_URL).href : `${SITE_URL}/jtbazar-social-card.png`
