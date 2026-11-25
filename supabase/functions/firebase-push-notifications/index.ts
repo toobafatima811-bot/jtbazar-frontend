@@ -155,21 +155,30 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Firebase service account belongs to a different project" }, 400);
       }
       const googleToken = await getGoogleAccessToken(serviceAccount);
+      const imageUrl = String(body.image_url || "").trim();
+      const notification: Record<string, string> = { title, body: messageBody };
+      if (imageUrl) notification.image = imageUrl;
+      const dataPayload = Object.fromEntries(Object.entries(body.data || {}).map(([k, v]) => [k, String(v)])) as Record<string, string>;
+      if (imageUrl) dataPayload.image_url = imageUrl;
+      if (body.link) dataPayload.link = String(body.link);
       const results = await Promise.all(devices.map(async (device: {token:string; platform:string}) => {
         const payload: Record<string, unknown> = {
           message: {
             token: device.token,
-            notification: { title, body: messageBody },
-            data: Object.fromEntries(Object.entries(body.data || {}).map(([k, v]) => [k, String(v)])),
+            notification,
+            data: dataPayload,
           },
         };
         if (device.platform === "web") {
           (payload.message as Record<string, unknown>).webpush = {
-            notification: { title, body: messageBody, icon: "/favicon.ico" },
+            notification: { title, body: messageBody, icon: "/favicon.ico", ...(imageUrl ? { image: imageUrl } : {}) },
             fcmOptions: body.link ? { link: String(body.link) } : undefined,
           };
         } else {
-          (payload.message as Record<string, unknown>).android = { priority: "high" };
+          (payload.message as Record<string, unknown>).android = {
+            priority: "high",
+            ...(imageUrl ? { notification: { image: imageUrl } } : {}),
+          };
         }
         const response = await fetch(
           `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
