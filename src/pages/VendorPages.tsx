@@ -461,7 +461,7 @@ function ShopForm({ profile, onSaved, mode = 'apply' }: { profile: SellerProfile
 }
 
 export function VendorApplicationPage() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<SellerProfile | null>(null)
   const [accountSuspensionReason, setAccountSuspensionReason] = useState<string | null>(null)
@@ -583,7 +583,7 @@ function VendorGuideModal({ onClose, initialLocale }: { onClose: () => void; ini
 }
 
 export function VendorDashboardPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { user, loading: authLoading } = useAuth()
   const { push } = useToast()
   const { categories } = useCatalog()
@@ -2724,6 +2724,7 @@ export function VendorDashboardPage() {
         </section>
       </div>
     )}
+    {vendorGuideOpen && <VendorGuideModal onClose={() => setVendorGuideOpen(false)} initialLocale={locale} />}
   </section></VendorGate>
 }
 
@@ -3338,7 +3339,6 @@ function VendorSupportDesk({ sellerId, onError }: { sellerId: string; onError: (
         </>
       )}
     </div>
-    {vendorGuideOpen && <VendorGuideModal onClose={() => setVendorGuideOpen(false)} initialLocale={locale} />}
     {selectedTicket && <div className="vendor-support-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedTicketId(null) }}><section className="vendor-support-modal" role="dialog" aria-modal="true" aria-labelledby="vendor-support-modal-title"><header className="vendor-support-modal__header"><div className="vendor-support-modal__person"><span className="vendor-support-modal__avatar">J</span><div><small>{t('JTBazar Support')}</small><h3 id="vendor-support-modal-title">{selectedTicket.subject}</h3><p>{t('Support conversation')}</p></div></div><button type="button" className="vendor-support-modal__close" aria-label={t('Close chat')} onClick={() => setSelectedTicketId(null)}><X size={19}/></button></header><div className="vendor-support-modal__meta"><span>{t('Ticket status')}</span><StatusBadge status={selectedTicket.status}/><span>{new Date(selectedTicket.created_at).toLocaleString()}</span></div><VendorSupportConversation ticket={selectedTicket}/></section></div>}
   </div>
 }
