@@ -29,6 +29,10 @@ function htmlFor({ title, description, path, image, schema, type = 'website' }) 
   const canonical = `${siteUrl}${path}`
   const imageUrl = image || `${siteUrl}/jtbazar-social-card.png`
   const meta = (key, value, attribute = 'name') => `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`
+  // Product images are stored full-size; declare standard OG dimensions so social scrapers
+  // (WhatsApp, Facebook, Telegram, iMessage) know the size without downloading the entire file.
+  const ogImageWidth = '1200'
+  const ogImageHeight = '630'
   let html = template
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(fullTitle)}</title>`)
     .replace(/<meta name="description"[^>]*>/i, meta('description', metaDescription))
@@ -39,8 +43,10 @@ function htmlFor({ title, description, path, image, schema, type = 'website' }) 
     .replace(/<meta property="og:title"[^>]*>/i, meta('og:title', fullTitle, 'property'))
     .replace(/<meta property="og:description"[^>]*>/i, meta('og:description', metaDescription, 'property'))
     .replace(/<meta property="og:image"[^>]*>/i, meta('og:image', imageUrl, 'property'))
-    .replace(/<meta property="og:image:alt"[^>]*>/i, meta('og:image:alt', `${fullTitle} — JTBazar`, 'property'))
+    .replace(/<meta property="og:image:alt"[^>]*>/i,
+      `${meta('og:image:alt', `${fullTitle} — JTBazar`, 'property')}\n    ${meta('og:image:width', ogImageWidth, 'property')}\n    ${meta('og:image:height', ogImageHeight, 'property')}`)
     .replace(/<meta property="og:type"[^>]*>/i, meta('og:type', type, 'property'))
+    .replace(/<meta name="twitter:card"[^>]*>/i, meta('twitter:card', 'summary_large_image'))
     .replace(/<meta name="twitter:title"[^>]*>/i, meta('twitter:title', fullTitle))
     .replace(/<meta name="twitter:description"[^>]*>/i, meta('twitter:description', metaDescription))
     .replace(/<meta name="twitter:image"[^>]*>/i, meta('twitter:image', imageUrl))
