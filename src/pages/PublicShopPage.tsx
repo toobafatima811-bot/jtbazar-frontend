@@ -100,11 +100,11 @@ export function PublicShopPage() {
           .shop-description-wrap .shop-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
           .shop-description-wrap.is-expanded .shop-description { display: block; overflow: visible; }
           .shop-description-toggle { margin-top: 6px; padding: 0; border: 0; color: #d97706; background: transparent; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
-          .shop-hours-public__grid > div.is-today { border: 1px solid #f59e0b; background: #fff7ed; }
-          .shop-hours-public__grid > div.is-today > strong { color: #c45b0b; }
-          .shop-hours-public__today { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 999px; color: #9a3412; background: #fed7aa; font-size: .68rem; font-weight: 700; }
+          .shop-hours-public__grid > div.is-today { border-color: #e7a23b; background: #fff8ed; }
+          .shop-hours-public__grid > div.is-today .shop-hours-public__day { color: #9a5311; }
+          .shop-hours-public__today { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; color: #92500e; background: #ffebc9; font-size: .68rem; font-weight: 700; line-height: 1.5; }
         `}</style>
-        {shopSchedule?.shop_hours && <div className="shop-hours-public"><h3>{t('Shop opening hours')}</h3><div className="shop-hours-public__grid">{(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const).map((day) => { const slot = shopSchedule.shop_hours[day]; const isToday = day === todayKey; return <div key={day} className={isToday ? 'is-today' : undefined} aria-current={isToday ? 'date' : undefined}><strong>{t(day.charAt(0).toUpperCase() + day.slice(1))}{isToday ? <span className="shop-hours-public__today">{t('Today')}</span> : null}</strong><span>{slot?.open ? `${formatShopTime(slot.start)} – ${formatShopTime(slot.end)}` : t('Closed')}</span></div> })}</div></div>}
+        {shopSchedule?.shop_hours && <div className="shop-hours-public"><h3>{t('Shop opening hours')}</h3><div className="shop-hours-public__grid">{(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const).map((day) => { const slot = shopSchedule.shop_hours[day]; const isToday = day === todayKey; return <div key={day} className={isToday ? 'is-today' : undefined} aria-current={isToday ? 'date' : undefined}><strong className="shop-hours-public__day">{t(day.charAt(0).toUpperCase() + day.slice(1))}{isToday ? <span className="shop-hours-public__today">{t('Today')}</span> : null}</strong><span className={!slot?.open ? 'is-closed' : undefined}>{slot?.open ? `${formatShopTime(slot.start)} – ${formatShopTime(slot.end)}` : t('Closed')}</span></div> })}</div></div>}
         <div className="page-heading">
           <h2>{t('Shop Products')} ({shopCatalog.count})</h2>
         </div>
