@@ -802,7 +802,7 @@ img { display: block; max-width: 100%; }
 .shop-category-filters{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
 .shop-hours-public{margin:18px 0 24px;padding:18px;border:1px solid var(--border,#e5e7eb);border-radius:16px;background:var(--surface,#fff);box-shadow:0 5px 18px rgba(16,24,40,.035)}
 .shop-hours-public h3{margin:0 0 14px;font-size:1rem;font-weight:750}
-.shop-hours-public__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:8px}
+.shop-hours-public__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .shop-hours-public__grid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;padding:10px 12px;border:1px solid transparent;border-radius:10px;background:var(--surface-muted,#f7f7f8);font-size:.875rem}
 .shop-hours-public__grid .shop-hours-public__day{display:flex;align-items:center;gap:8px;min-width:0;font-weight:650;white-space:nowrap}
 .shop-hours-public__grid>div>span{color:var(--text,#344054);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
