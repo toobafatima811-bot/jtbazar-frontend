@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Boxes,
   CheckCircle2,
+  CircleHelp,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -504,8 +505,85 @@ export function VendorApplicationPage() {
 
 type DashboardTab = 'overview' | 'listings' | 'inventory' | 'orders' | 'cases' | 'settings'
 
+
+type VendorGuideLanguage = 'en' | 'ur' | 'roman'
+
+function VendorGuideModal({ onClose, initialLocale }: { onClose: () => void; initialLocale: 'en' | 'ur' }) {
+  const [language, setLanguage] = useState<VendorGuideLanguage>(initialLocale)
+  const copy = {
+    en: {
+      title: 'Vendor dashboard guide',
+      intro: 'Follow these steps to manage your shop correctly. Product fields marked * are required.',
+      close: 'Close guide',
+      sections: [
+        ['Overview', 'Your overview shows listing counts, recent products, latest orders and action items. Use Add Product to create a listing, Update Stock to correct quantities, and View Orders to process customer purchases.'],
+        ['Listings & product creation', 'Open Listings and choose Add Product. Complete the product details, pricing, stock, images and description. Save only after checking every value. A new listing is submitted for JTBazar review; it may not appear publicly until approved.'],
+        ['Product details — every field', 'Product name*: Enter the exact customer-facing name. Product URL*: This is the web address slug; it is generated from the name and must use lowercase letters, numbers and hyphens. Product code: SKU/code generated automatically; normally leave it unchanged. Category*: Choose the closest correct category; the category controls commission and special fields.'],
+        ['Price, commission & discount', 'Your base price*: Enter the amount you want to receive for one product (for food, per selected selling unit). JTBazar commission is added automatically to calculate the customer price. Check the Price breakdown preview before submitting. Discount (%): Optional discount applied to the customer price after commission; enter 0 if there is no discount.'],
+        ['Food-only fields', 'These appear only when a food category is selected. Selling unit: Choose kg, g, litre, ml, piece, dozen or pack. Customer quantity step: The amount customers can add at a time (for kg/litre enter grams/ml, e.g. 250). Minimum purchase steps: The minimum number of steps customers must buy. Daily item: Enable only for dishes/items whose availability changes daily. Daily availability: Choose Available today, Not for today or Coming soon. Today’s available quantity: Enter the quantity only when available today. Food delivery is limited to 5 km; set shop coordinates in Shop Settings.'],
+        ['Stock, cost & profit', 'Initial stock quantity: Set the starting quantity when creating a product. Track inventory: Keep enabled if stock should be tracked. Shipping weight (grams): Enter packed product weight for delivery calculations. Supplier cost: Your private purchase cost; customers do not see it. Fulfilment expense: Your per-item packing/handling cost. Minimum profit: Your target minimum profit. Review the profit preview; enter real costs for a useful estimate.'],
+        ['Variants', 'Use variants for options such as size, colour or material. Option name: e.g. Size. Option value: e.g. Large or Black. Variant SKU: Optional unique code. Price override: Leave blank to use the base price, or enter a different price for this option. Stock quantity: Quantity for this variant. Variant image: Upload a clear image for that option. Variant changes are reviewed before publication.'],
+        ['Photos, description & search', 'Product images*: Upload at least one clear image; up to 8 images total, JPG/PNG/WebP/AVIF, maximum 10 MB each. Short description: A brief customer-friendly summary (up to 300 characters). Full description: Explain features, material, size, use and what is included. Specifications (JSON array) and Dimensions (JSON object): Use valid JSON only; leave defaults if you are unsure. SEO title and SEO description: Optional search-result title and summary.'],
+        ['Inventory, orders & fulfilment', 'Inventory: Update available quantities accurately and record stock changes. Orders/Fulfilment: Review each new order, prepare the correct items, update its fulfilment status on time and use the order details for dispatch. Never mark an order as dispatched or completed before the real action happens.'],
+        ['Cases, support & shop settings', 'Cases & Support: Read the customer issue, respond politely and attach relevant evidence when requested. Shop Settings: Keep shop name, contact details, location and opening hours accurate. Shop enabled can pause the shop in an emergency; weekly hours determine the public Open/Closed status using Pakistan time.'],
+        ['Important checks before submitting', 'Use genuine product photos and accurate descriptions. Select the correct category and variant stock. Do not include supplier cost or private business information in the public description. Check price, discount, weight and stock. Submit once and wait for the review result; do not create duplicate listings.']
+      ]
+    },
+    ur: {
+      title: 'وینڈر ڈیش بورڈ رہنمائی',
+      intro: 'اپنی دکان درست طریقے سے چلانے کے لیے یہ مراحل پڑھیں۔ جن فیلڈز کے ساتھ * ہے وہ لازمی ہیں۔',
+      close: 'رہنمائی بند کریں',
+      sections: [
+        ['ڈیش بورڈ کا جائزہ', 'Overview میں آپ کو پروڈکٹس کی تعداد، حالیہ لسٹنگز، تازہ آرڈرز اور ضروری کام نظر آتے ہیں۔ Add Product سے پروڈکٹ شامل کریں، Update Stock سے مقدار درست کریں اور View Orders سے کسٹمر آرڈرز دیکھیں۔'],
+        ['لسٹنگز اور نئی پروڈکٹ', 'Listings کھولیں اور Add Product منتخب کریں۔ پروڈکٹ کی تفصیلات، قیمت، اسٹاک، تصاویر اور وضاحت مکمل کریں۔ جمع کرانے سے پہلے تمام معلومات چیک کریں۔ نئی لسٹنگ JTBazar کی جانچ کے لیے جاتی ہے؛ منظوری سے پہلے عوامی طور پر نظر نہیں آ سکتی۔'],
+        ['پروڈکٹ کی تفصیلات — ہر فیلڈ', 'Product name*: پروڈکٹ کا درست نام لکھیں جو کسٹمر کو دکھائی دے گا۔ Product URL*: پروڈکٹ کے صفحے کا لنک ہے؛ نام سے خود بنتا ہے اور اس میں چھوٹے انگریزی حروف، نمبر اور ہائفن استعمال ہوتے ہیں۔ Product code: خودکار SKU/کوڈ ہے، عام طور پر اسے تبدیل نہ کریں۔ Category*: سب سے درست کیٹیگری منتخب کریں؛ کمیشن اور اضافی فیلڈز اسی کے مطابق ہوتے ہیں۔'],
+        ['قیمت، کمیشن اور ڈسکاؤنٹ', 'Your base price*: وہ قیمت درج کریں جو آپ ایک پروڈکٹ کے بدلے وصول کرنا چاہتے ہیں؛ کھانے کی اشیا میں یہ منتخب یونٹ کے حساب سے ہوتی ہے۔ JTBazar کمیشن خود شامل کرکے کسٹمر کی قیمت بناتا ہے۔ جمع کرانے سے پہلے Price breakdown دیکھیں۔ Discount (%): اختیاری رعایت ہے جو کمیشن کے بعد کسٹمر کی قیمت پر لگتی ہے؛ رعایت نہ ہو تو 0 رکھیں۔'],
+        ['صرف کھانے کی اشیا کے فیلڈز', 'یہ فیلڈز صرف فوڈ کیٹیگری منتخب کرنے پر آتے ہیں۔ Selling unit: کلو، گرام، لیٹر، ملی لیٹر، پیس، درجن یا پیک منتخب کریں۔ Customer quantity step: کسٹمر ایک بار میں کتنی مقدار خرید سکتا ہے؛ کلو/لیٹر کے لیے گرام یا ملی لیٹر لکھیں، مثلاً 250۔ Minimum purchase steps: کم از کم خریداری کے مراحل۔ Daily item: صرف روزانہ دستیابی بدلنے والی ڈش کے لیے آن کریں۔ Daily availability: آج دستیاب، آج دستیاب نہیں یا جلد دستیاب۔ Today’s available quantity: صرف آج دستیاب ہونے پر مقدار لکھیں۔ فوڈ ڈیلیوری 5 کلومیٹر تک محدود ہے؛ Shop Settings میں دکان کے کوآرڈینیٹس درج کریں۔'],
+        ['اسٹاک، لاگت اور منافع', 'Initial stock quantity: نئی پروڈکٹ کا ابتدائی اسٹاک لکھیں۔ Track inventory: اسٹاک کی گنتی رکھنی ہو تو آن رکھیں۔ Shipping weight (grams): پیک شدہ پروڈکٹ کا وزن لکھیں۔ Supplier cost: آپ کی خریداری کی نجی لاگت ہے، کسٹمر کو نظر نہیں آتی۔ Fulfilment expense: فی آئٹم پیکنگ اور ہینڈلنگ خرچ۔ Minimum profit: کم از کم مطلوبہ منافع۔ درست اندازے کے لیے اصل اخراجات درج کرکے منافع کا پری ویو دیکھیں۔'],
+        ['پروڈکٹ ویریئنٹس', 'سائز، رنگ یا میٹریل جیسے اختیارات کے لیے variants استعمال کریں۔ Option name: مثلاً Size۔ Option value: مثلاً Large یا Black۔ Variant SKU: اختیاری منفرد کوڈ۔ Price override: خالی چھوڑیں تو بنیادی قیمت لگے گی، ورنہ اس آپشن کی الگ قیمت لکھیں۔ Stock quantity: اس ویریئنٹ کا اسٹاک۔ Variant image: اسی آپشن کی واضح تصویر اپ لوڈ کریں۔ ویریئنٹس بھی شائع ہونے سے پہلے جانچ کے لیے جاتے ہیں۔'],
+        ['تصاویر، تفصیل اور سرچ', 'Product images*: کم از کم ایک واضح تصویر لازمی ہے؛ زیادہ سے زیادہ 8 تصاویر، JPG/PNG/WebP/AVIF، ہر تصویر 10 MB تک۔ Short description: مختصر تعارف، زیادہ سے زیادہ 300 حروف۔ Full description: خصوصیات، میٹریل، سائز، استعمال اور پیکج میں شامل چیزیں لکھیں۔ Specifications (JSON array) اور Dimensions (JSON object): صرف درست JSON لکھیں؛ سمجھ نہ آئے تو پہلے سے موجود ڈیفالٹ رہنے دیں۔ SEO title اور SEO description: سرچ رزلٹس کے لیے اختیاری عنوان اور خلاصہ ہیں۔'],
+        ['اسٹاک، آرڈرز اور ترسیل', 'Inventory میں دستیاب مقدار درست رکھیں اور اسٹاک کی تبدیلی ریکارڈ کریں۔ Orders/Fulfilment میں نیا آرڈر دیکھیں، درست اشیا تیار کریں اور وقت پر اسٹیٹس اپ ڈیٹ کریں۔ حقیقت میں بھیجے یا مکمل کیے بغیر آرڈر کو dispatched یا completed نہ کریں۔'],
+        ['کیسز، سپورٹ اور دکان کی ترتیبات', 'Cases & Support میں کسٹمر کا مسئلہ پڑھیں، شائستگی سے جواب دیں اور ضرورت پر متعلقہ ثبوت لگائیں۔ Shop Settings میں دکان کا نام، رابطہ، مقام اور اوقات درست رکھیں۔ ہنگامی صورت میں Shop enabled بند کرکے دکان عارضی طور پر روک سکتے ہیں؛ ہفتہ وار اوقات پاکستان کے وقت کے مطابق عوامی Open/Closed اسٹیٹس طے کرتے ہیں۔'],
+        ['جمع کرانے سے پہلے ضروری چیک', 'اصل تصاویر اور درست تفصیل استعمال کریں۔ درست کیٹیگری اور ویریئنٹ اسٹاک منتخب کریں۔ عوامی تفصیل میں سپلائر کی لاگت یا نجی کاروباری معلومات نہ لکھیں۔ قیمت، رعایت، وزن اور اسٹاک چیک کریں۔ ایک بار جمع کرا کے جانچ کے نتیجے کا انتظار کریں؛ ڈپلیکیٹ لسٹنگ نہ بنائیں۔']
+      ]
+    },
+    roman: {
+      title: 'Vendor Dashboard ki Rahnumai',
+      intro: 'Apni shop sahi tareeqe se chalane ke liye ye steps parhein. Jin fields ke sath * hai woh lazmi hain.',
+      close: 'Guide band karein',
+      sections: [
+        ['Dashboard ka overview', 'Overview mein products ki tadaad, recent listings, latest orders aur zaroori actions nazar aate hain. Add Product se product add karein, Update Stock se quantity durust karein aur View Orders se customer orders dekhein.'],
+        ['Listings aur naya product', 'Listings kholein aur Add Product select karein. Product details, price, stock, images aur description mukammal karein. Submit karne se pehle har value check karein. Nayi listing JTBazar review ke liye jati hai; approval se pehle public page par nazar nahi aati.'],
+        ['Product details — har field', 'Product name*: Product ka sahi naam likhein jo customer ko nazar aaye. Product URL*: Product page ka link/slug hai; naam se khud banta hai aur lowercase English letters, numbers aur hyphen use karta hai. Product code: Automatic SKU/code hai, aam tor par isay change na karein. Category*: Sab se relevant category select karein; commission aur extra fields isi par depend karti hain.'],
+        ['Price, commission aur discount', 'Your base price*: Woh amount likhein jo aap ek product ke badlay receive karna chahte hain; food items mein selected selling unit ke hisaab se. JTBazar commission khud add karke customer price calculate karta hai. Submit se pehle Price breakdown dekhein. Discount (%): Optional discount hai jo commission ke baad customer price par apply hota hai; discount na ho to 0 rakhein.'],
+        ['Sirf food products ke fields', 'Ye fields sirf Food category select karne par aati hain. Selling unit: kg, g, litre, ml, piece, dozen ya pack select karein. Customer quantity step: Customer ek dafa mein kitni quantity le sakta hai; kg/litre ke liye grams ya ml likhein, misal 250. Minimum purchase steps: Minimum purchase ke steps. Daily item: Sirf roz availability badalne wali dish ke liye on karein. Daily availability: Available today, Not for today ya Coming soon select karein. Today’s available quantity: Sirf aaj available honay par quantity likhein. Food delivery 5 km tak hai; Shop Settings mein shop coordinates add karein.'],
+        ['Stock, cost aur profit', 'Initial stock quantity: Naye product ka starting stock likhein. Track inventory: Stock track karna ho to enabled rakhein. Shipping weight (grams): Packed product ka weight likhein. Supplier cost: Aapki purchase cost hai, customer ko nazar nahi aati. Fulfilment expense: Har item ki packing/handling cost. Minimum profit: Aapka target minimum profit. Accurate estimate ke liye asal costs likh kar profit preview check karein.'],
+        ['Product variants', 'Size, color ya material jaisay options ke liye variants use karein. Option name: misal Size. Option value: misal Large ya Black. Variant SKU: Optional unique code. Price override: Khali chhorein to base price lagegi, warna is option ki alag price likhein. Stock quantity: Is variant ka stock. Variant image: Is option ki clear image upload karein. Variants bhi publish honay se pehle review hotay hain.'],
+        ['Photos, description aur search', 'Product images*: Kam az kam ek clear image lazmi hai; maximum 8 images, JPG/PNG/WebP/AVIF, har image 10 MB tak. Short description: Mukhtasar intro, 300 characters tak. Full description: Features, material, size, use aur package mein shamil cheezein batayein. Specifications (JSON array) aur Dimensions (JSON object): Sirf valid JSON likhein; samajh na aaye to default rehne dein. SEO title aur SEO description: Search results ke liye optional title aur summary hain.'],
+        ['Inventory, orders aur fulfilment', 'Inventory mein available quantity durust rakhein aur stock changes record karein. Orders/Fulfilment mein naya order check karein, sahi items prepare karein aur time par status update karein. Jab tak parcel waqai dispatch ya complete na ho, order ko dispatched ya completed mark na karein.'],
+        ['Cases, support aur shop settings', 'Cases & Support mein customer ka issue parhein, tameez se jawab dein aur zaroorat par relevant evidence attach karein. Shop Settings mein shop name, contact, location aur opening hours sahi rakhein. Emergency mein Shop enabled off karke shop temporarily pause kar sakte hain; weekly hours Pakistan time ke mutabiq public Open/Closed status set karte hain.'],
+        ['Submit se pehle zaroori checks', 'Original photos aur accurate details use karein. Sahi category aur variant stock select karein. Public description mein supplier cost ya private business info na likhein. Price, discount, weight aur stock check karein. Ek dafa submit karke review result ka wait karein; duplicate listing na banayein.']
+      ]
+    }
+  }[language]
+  return <div className="vendor-guide-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="vendor-guide-modal" role="dialog" aria-modal="true" aria-labelledby="vendor-guide-title" dir={language === 'ur' ? 'rtl' : 'ltr'}>
+      <header className="vendor-guide-modal__header"><div><span className="vendor-guide-modal__eyebrow">JTBazar</span><h2 id="vendor-guide-title">{copy.title}</h2><p>{copy.intro}</p></div><button type="button" className="vendor-guide-modal__close" aria-label={copy.close} onClick={onClose}><X size={20}/></button></header>
+      <div className="vendor-guide-modal__languages" role="group" aria-label="Guide language">
+        <button type="button" className={language === 'en' ? 'is-active' : ''} onClick={() => setLanguage('en')}>English</button>
+        <button type="button" className={language === 'ur' ? 'is-active' : ''} onClick={() => setLanguage('ur')}>اردو</button>
+        <button type="button" className={language === 'roman' ? 'is-active' : ''} onClick={() => setLanguage('roman')}>Roman Urdu</button>
+      </div>
+      <div className="vendor-guide-modal__content">
+        {copy.sections.map(([heading, body], index) => <section className="vendor-guide-section" key={heading}><span className="vendor-guide-section__number">{index + 1}</span><div><h3>{heading}</h3><p>{body}</p></div></section>)}
+      </div>
+      <footer className="vendor-guide-modal__footer"><span>{language === 'ur' ? 'یہ رہنمائی تمام وینڈرز کے لیے دستیاب ہے۔' : language === 'roman' ? 'Ye guide tamam vendors ke liye available hai.' : 'This guide is available to every vendor.'}</span><button type="button" className="button button--dark" onClick={onClose}>{copy.close}</button></footer>
+    </section>
+  </div>
+}
+
 export function VendorDashboardPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { user, loading: authLoading } = useAuth()
   const { push } = useToast()
   const { categories } = useCatalog()
@@ -540,6 +618,7 @@ export function VendorDashboardPage() {
   const [inventoryEditNote, setInventoryEditNote] = useState('')
   const [savingInventoryGroup, setSavingInventoryGroup] = useState(false)
   const [savingProductAction, setSavingProductAction] = useState(false)
+  const [vendorGuideOpen, setVendorGuideOpen] = useState(false)
 
   // Product List Filters & Controls
   const [searchQuery, setSearchQuery] = useState('')
@@ -993,6 +1072,7 @@ export function VendorDashboardPage() {
                 <p>{t('Here is a summary of your shop activity, active listings, and pending deliveries.')}</p>
               </div>
               <div className="vendor-quick-actions">
+                <button type="button" className="vendor-quick-action-btn vendor-guide-trigger" onClick={() => setVendorGuideOpen(true)}><CircleHelp size={15} aria-hidden="true" /><span>{t('Vendor Guide')}</span></button>
                 <button
                   type="button"
                   className="vendor-quick-action-btn"
@@ -2644,6 +2724,7 @@ export function VendorDashboardPage() {
         </section>
       </div>
     )}
+    {vendorGuideOpen && <VendorGuideModal onClose={() => setVendorGuideOpen(false)} initialLocale={locale} />}
   </section></VendorGate>
 }
 
