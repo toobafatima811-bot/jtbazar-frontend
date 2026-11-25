@@ -85,7 +85,7 @@ export function HomePage() {
   const orderedProducts = products.filter((product) => product.isPublished)
   const featured = orderedProducts.filter((product) => product.isFeatured)
   // Reserve the hero spotlight product so it is never repeated in the Featured grid.
-  const heroProduct = featured.find((product) => product.images[0]) ?? orderedProducts.find((product) => product.images[0])
+  const heroProduct = featured.find((product) => product.images[0])
   const featuredProducts = featured.filter((product) => product.id !== heroProduct?.id).slice(0, 5)
   const heroShop = shops.find((shop) => shop.shopImageUrl)
   // New Arrivals must contain products that are not already promoted above.
