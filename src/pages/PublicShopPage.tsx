@@ -41,13 +41,14 @@ export function PublicShopPage() {
   const shopProducts = shopCatalog.products
   const todayKey = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Karachi' }).format(new Date()).toLowerCase()
   const formatShopTime = (value: string) => {
-    const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
-    if (!match) return value
+    const normalized = String(value ?? '').trim()
+    const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(normalized)
+    if (!match) return normalized
     const hour = Number(match[1])
-    const minute = match[2]
-    if (hour > 23 || hour < 0) return value
+    const minute = Number(match[2])
+    if (hour > 23 || hour < 0 || minute > 59) return normalized
     const suffix = hour >= 12 ? 'PM' : 'AM'
-    return `${hour % 12 || 12}:${minute} ${suffix}`
+    return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`
   }
 
   usePageMeta(shop ? shop.shopName : t('Vendor Shop'), shop ? `Shop ${shop.shopName} on JTBazar.` : t('Vendor shop details.'), { noIndex: status === 'ready' && (!shop || shop.productCount === 0) })
