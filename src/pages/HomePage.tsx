@@ -34,7 +34,7 @@ export function HomePage() {
   const { t } = useI18n()
   const { categories, shops } = useCatalog()
   const homeProducts = useInfiniteProducts({ sort: 'featured', pageSize: 12 })
-  const newestProducts = useInfiniteProducts({ sort: 'newest', pageSize: 5 })
+  const newestProducts = useInfiniteProducts({ sort: 'newest', pageSize: 24 })
   const products = homeProducts.products
   const status = homeProducts.loading ? 'loading' : homeProducts.error ? 'error' : 'ready'
   const error = homeProducts.error
@@ -84,10 +84,13 @@ export function HomePage() {
 
   const orderedProducts = products.filter((product) => product.isPublished)
   const featured = orderedProducts.filter((product) => product.isFeatured)
-  const featuredProducts = (featured.length ? featured : orderedProducts).slice(0, 5)
-  const heroProduct = featuredProducts.find((product) => product.images[0])
+  // Reserve the hero spotlight product so it is never repeated in the Featured grid.
+  const heroProduct = featured.find((product) => product.images[0]) ?? orderedProducts.find((product) => product.images[0])
+  const featuredProducts = featured.filter((product) => product.id !== heroProduct?.id).slice(0, 5)
   const heroShop = shops.find((shop) => shop.shopImageUrl)
-  const newArrivals = newestProducts.products.filter((product) => product.isPublished).slice(0, 5)
+  // New Arrivals must contain products that are not already promoted above.
+  const promotedProductIds = new Set([heroProduct?.id, ...featured.map((product) => product.id)].filter((id): id is string => Boolean(id)))
+  const newArrivals = newestProducts.products.filter((product) => product.isPublished && !promotedProductIds.has(product.id)).slice(0, 5)
   const renderCampaignBanners = (position: string) => <PromotionPlacement campaigns={homepageBanners.filter((item) => item.display_position === position)} />
   const knownBannerPositions = ['top_promo', 'hero_banner', 'category_feature', 'before_popular_products', 'product_strip', 'offer_section', 'seller_banner', 'app_download_banner']
   const unplacedBanners = homepageBanners.filter((item) => !knownBannerPositions.includes(item.display_position || ''))
@@ -141,8 +144,8 @@ export function HomePage() {
         <div className="home-section__heading">
           <div>
             <span className="home-eyebrow">{t('Featured Products')}</span>
-            <h2 id="featured-products-title">{t('Top picks from top sellers.')}</h2>
-            <p>{t('Explore popular items with confirmed pricing and stock.')}</p>
+            <h2 id="featured-products-title">{t('Featured picks from JTBazar.')}</h2>
+            <p>{t('Handpicked products from approved marketplace listings.')}</p>
           </div>
           <Link className="home-text-link" to="/shop">{t('Browse marketplace')} <ArrowRight size={16} aria-hidden="true" /></Link>
         </div>
