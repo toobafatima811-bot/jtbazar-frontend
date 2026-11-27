@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION private.enforce_vendor_commission_admin_only() TO authenticated;
