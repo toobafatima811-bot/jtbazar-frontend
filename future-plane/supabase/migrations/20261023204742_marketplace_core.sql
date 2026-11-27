@@ -40,8 +40,7 @@ ALTER TABLE public.order_items
   ADD COLUMN vendor_note text CHECK (vendor_note IS NULL OR char_length(vendor_note) <= 1000),
   ADD COLUMN vendor_updated_at timestamptz;
 
-DROP POLICY products_anon_read ON public.products;
-DROP POLICY products_authenticated_read ON public.products;
+DROP POLICY products_public_read ON public.products;
 CREATE POLICY products_anon_read
   ON public.products FOR SELECT TO anon
   USING (publication_status = 'published'::public.publication_status AND moderation_status = 'approved' AND stock_verification_status <> 'paused');
@@ -49,8 +48,7 @@ CREATE POLICY products_authenticated_read
   ON public.products FOR SELECT TO authenticated
   USING ((publication_status = 'published'::public.publication_status AND moderation_status = 'approved' AND stock_verification_status <> 'paused') OR (SELECT private.has_role('admin'::public.app_role)));
 
-DROP POLICY product_images_anon_read ON public.product_images;
-DROP POLICY product_images_authenticated_read ON public.product_images;
+DROP POLICY product_images_public_read ON public.product_images;
 CREATE POLICY product_images_anon_read
   ON public.product_images FOR SELECT TO anon
   USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id = product_images.product_id AND p.publication_status = 'published'::public.publication_status AND p.moderation_status = 'approved' AND p.stock_verification_status <> 'paused'));
@@ -58,8 +56,7 @@ CREATE POLICY product_images_authenticated_read
   ON public.product_images FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id = product_images.product_id AND p.publication_status = 'published'::public.publication_status AND p.moderation_status = 'approved' AND p.stock_verification_status <> 'paused') OR (SELECT private.has_role('admin'::public.app_role)));
 
-DROP POLICY product_variants_anon_read ON public.product_variants;
-DROP POLICY product_variants_authenticated_read ON public.product_variants;
+DROP POLICY product_variants_public_read ON public.product_variants;
 CREATE POLICY product_variants_anon_read
   ON public.product_variants FOR SELECT TO anon
   USING (is_active AND EXISTS (SELECT 1 FROM public.products p WHERE p.id = product_variants.product_id AND p.publication_status = 'published'::public.publication_status AND p.moderation_status = 'approved' AND p.stock_verification_status <> 'paused'));
