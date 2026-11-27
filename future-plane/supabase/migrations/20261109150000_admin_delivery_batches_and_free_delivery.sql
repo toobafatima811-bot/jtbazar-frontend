@@ -62,7 +62,7 @@ AS $function$
       then '0' || pg_catalog.substr(pg_catalog.regexp_replace(coalesce(p_phone,''),'[^0-9]','','g'),3)
     else pg_catalog.regexp_replace(coalesce(p_phone,''),'[^0-9]','','g')
   end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_confirm_orders_with_delivery_batch(p_order_ids uuid[], p_ready_item_ids uuid[], p_expected_delivery_date date, p_delivery_window_start time without time zone, p_delivery_window_end time without time zone, p_delivery_note text DEFAULT NULL::text, p_delivery_fee_override numeric DEFAULT NULL::numeric, p_fee_adjustment_reason text DEFAULT NULL::text)
@@ -128,7 +128,7 @@ begin
   values(auth.uid(),'UPDATE','delivery_batches',v_batch_id,jsonb_build_object('batch_id',v_batch_id,'order_ids',p_order_ids,'ready_item_ids',coalesce(p_ready_item_ids,'{}'::uuid[]),'delivery_fee',v_fee,'default_fee',v_default_fee,'fee_adjustment_reason',p_fee_adjustment_reason,'reused_existing_batch',v_existing_count=1));
   return v_batch_id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_create_followup_delivery_batch(p_order_id uuid, p_item_ids uuid[], p_expected_delivery_date date, p_delivery_window_start time without time zone, p_delivery_window_end time without time zone, p_delivery_note text DEFAULT NULL::text)
@@ -162,7 +162,7 @@ begin
   values(auth.uid(),'INSERT','delivery_batches',v_batch_id,jsonb_build_object('order_id',p_order_id,'item_ids',p_item_ids,'additional_delivery_fee',v_fee));
   return v_batch_id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_find_customer_delivery_orders(p_order_id uuid)
@@ -184,7 +184,7 @@ begin
     and not exists(select 1 from public.delivery_batch_orders dbo join public.delivery_batches db on db.id=dbo.batch_id where dbo.order_id=o.id and db.status in ('delivered','cancelled','in_transit'))
   order by o.created_at desc limit 50;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_mark_delivery_batch_delivered(p_batch_id uuid)
@@ -202,7 +202,7 @@ begin
   insert into public.admin_audit_logs(actor_id,action,entity,entity_id,details)
   values(auth.uid(),'UPDATE','delivery_batches',p_batch_id,jsonb_build_object('status','delivered','note','Item delivery recorded; order-level COD collection remains a separate admin action.'));
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_update_store_settings(p_settings jsonb)
@@ -239,7 +239,7 @@ begin
   end if;
   return result_row;
 end;
-$function$
+$function$;
 
 
 revoke all on function public.admin_find_customer_delivery_orders(uuid) from public,anon;
